@@ -1,7 +1,7 @@
 // 背景守護模式（Android 原生外掛 Guardian 的 JS 介面）。網頁版沒有背景定位，提供說明而不報錯。
 import { registerPlugin } from '@capacitor/core'
 import { getServer, isNative } from './api.js'
-import { emit } from './store.js'
+import { emit, on } from './store.js'
 import { elderMode } from './family.js'
 
 const Native = registerPlugin('Guardian')
@@ -30,6 +30,11 @@ export function setGuardianMode(m) {
 }
 
 export const guardianAvailable = () => isNative()
+
+// 守護中切換長輩模式：重新啟動服務讓新的提醒距離與語速生效（Codex 審查）。展示模擬不受影響。
+on((type) => {
+  if (type === 'elder' && guardianState.running && !guardianState.simulating) startGuardian().catch(() => {})
+})
 
 export async function initGuardian() {
   if (!isNative()) return

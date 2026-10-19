@@ -1,5 +1,6 @@
 // 端對端測試：模擬真人在手機上把每個功能從頭點到尾。
 // 執行：powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1（會先確認伺服器在執行，結束後清除測試資料）
+import { appendFileSync, mkdirSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 
 const E2E_TAG = 'E2E 自動測試'
@@ -313,6 +314,9 @@ test('家人模式：分享代碼 → 用代碼下載 → 長輩模式', async (
   await root.locator('[data-share]').click()
   const code = (await page.locator('.share-code').innerText()).replace(/\s/g, '')
   expect(code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/)
+  // 記下測試產生的代碼，結束後只清除這些（不誤刪真實分享）
+  mkdirSync('test-results', { recursive: true })
+  appendFileSync('test-results/e2e-codes.txt', code + '\n')
   const dbRow = await (await request.get(`/api/routes/${code}`)).json()
   expect(dbRow.end_name).toBe('捷運新莊站')
   await page.locator('.modal [data-close]').click()

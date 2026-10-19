@@ -114,5 +114,18 @@ def test_share_route_roundtrip(client):
         c.execute("DELETE FROM shared_route WHERE name LIKE 'pytest%%'")
 
 
+def test_share_code_guessing_is_throttled(client):
+    from backend.app.routers import routes
+
+    routes._fails.clear()
+    try:
+        for _ in range(routes.MAX_FAILS):
+            assert client.get("/api/routes/ZZZZZZ").status_code == 404
+        assert client.get("/api/routes/ZZZZZZ").status_code == 429  # 猜錯太多次被擋
+        assert client.get("/api/routes/abc").status_code == 429
+    finally:
+        routes._fails.clear()
+
+
 def test_report_validation(client):
     assert client.post("/api/reports", json={"lat": 0, "lon": 0}).status_code == 422

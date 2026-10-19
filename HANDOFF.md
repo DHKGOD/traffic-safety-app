@@ -105,3 +105,14 @@
 | 3 | VibrationEffect 在 API 24–25 不存在（且 NoClassDefFoundError 不會被 catch Exception 接住） | 成立 | API < 26 改用 Vibrator.vibrate(long[], int) |
 
 驗證：Java 單元測試 6/6、Android Lint 0 錯誤、實機守護測試出現靈動島提醒。
+
+### 第 3 次（2026-10-20，Codex review，範圍 3e74c83..2e02eb7：家人模式、路口合併）
+
+| # | Codex 指出 | 判斷 | 處理 |
+|---|---|---|---|
+| 1 | 分享代碼可被無限次猜測 | 成立 | 同一來源 10 分鐘內猜錯 10 次就回 429；格式不符直接算失敗；pytest 加測 |
+| 2 | E2E 清理以起訖點判斷，可能誤刪真實分享 | 成立 | E2E 記錄產生的代碼到 test-results/e2e-codes.txt，清理只刪這些 |
+| 3 | 守護中切換長輩模式不會生效 | 成立 | guardian.js 監聽 elder 事件，執行中（非模擬）自動重啟服務 |
+| 4 | 事故數相同的格子合併順序不固定 | 成立 | 排序加上座標作為固定依據 |
+
+驗證：pytest 45/45、E2E 16/16、實機巡檢 JS 錯誤 0。

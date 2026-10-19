@@ -68,7 +68,7 @@ def merge_cells(cells: dict[tuple[int, int], dict], merge_m: float) -> list[list
     （不做連鎖合併，避免整條路被併成一個點。）"""
     done: set[tuple[int, int]] = set()
     groups = []
-    for key in sorted(cells, key=lambda k: -cells[k]["n"]):
+    for key in sorted(cells, key=lambda k: (-cells[k]["n"], k)):  # 事故數相同時依座標排序，重建結果才會固定（Codex 審查）
         if key in done:
             continue
         c = cells[key]
