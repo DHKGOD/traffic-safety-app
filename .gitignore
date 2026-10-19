@@ -1,0 +1,37 @@
+# 機密設定
+.env
+*.keystore
+*.jks
+
+# 本機工具與資料（可由腳本重建）
+tools/
+db/pgdata/
+db/*.log
+data/raw/
+data/interim/
+logs/
+run/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Node / 前端
+node_modules/
+frontend/dist/
+frontend/android/app/build/
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/local.properties
+frontend/android/app/src/main/assets/public/
+
+# 模型檔（大檔不進 Git，用訓練腳本重建；只保留中繼資料）
+ai/models/*.joblib
+
+# 系統
+.DS_Store
+Thumbs.db
+.claude/settings.local.json
