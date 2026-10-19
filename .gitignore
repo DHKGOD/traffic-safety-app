@@ -16,6 +16,7 @@ run/
 __pycache__/
 *.pyc
 .venv/
+.uv-python/
 .pytest_cache/
 *.egg-info/
 

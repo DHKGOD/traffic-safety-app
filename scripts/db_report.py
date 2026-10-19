@@ -58,7 +58,7 @@ def main() -> int:
     text = "\n".join(lines) + "\n"
     out = ROOT / "docs" / "db-report.md"
     out.parent.mkdir(exist_ok=True)
-    out.write_text(text, encoding="utf-8")
+    out.write_text(text, encoding="utf-8", newline="\n")
     print(text)
     return 0
 

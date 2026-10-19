@@ -10,8 +10,8 @@ command = "cmd"
 args = ["/c", "npx", "-y", "@playwright/mcp@latest"]
 
 [mcp_servers.postgres]
-command = "uvx"
-args = ["postgres-mcp", "--access-mode=restricted"]
+command = "uv"
+args = ["run", "--quiet", "python", "tools_mcp/pg_readonly_mcp.py"]
 
 [mcp_servers.postgres.env]
 DATABASE_URI = "postgresql://mcp_readonly@127.0.0.1:5432/traffic"
