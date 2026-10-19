@@ -78,7 +78,12 @@ def main() -> int:
         png = subprocess.run(["adb", "exec-out", "screencap", "-p"], capture_output=True, timeout=20).stdout
         path = OUT / f"shot_{i:03d}.png"
         path.write_bytes(png)
-        img = Image.open(path).convert("RGB")
+        try:
+            img = Image.open(path).convert("RGB")
+        except OSError:  # 畫面切換瞬間偶爾會拿到不完整的截圖，略過
+            path.unlink(missing_ok=True)
+            i += 1
+            continue
         top = img.crop((0, 90, img.width, 600))
         if base is None:
             base = top

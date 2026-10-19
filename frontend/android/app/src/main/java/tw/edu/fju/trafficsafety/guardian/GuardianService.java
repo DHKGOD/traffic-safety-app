@@ -120,16 +120,27 @@ public class GuardianService extends Service {
         } else {
             startForeground(ID_STATUS, n);
         }
+        SharedPreferences sp = getSharedPreferences("guardian", MODE_PRIVATE);
         if (intent != null) {
             server = intent.getStringExtra("server") != null ? intent.getStringExtra("server") : server;
             engine.setUserMode(intent.getStringExtra("mode"));
             String sim = intent.getStringExtra("simulate");
             simSpeed = intent.getDoubleExtra("simSpeed", 1.4);
-            getSharedPreferences("guardian", MODE_PRIVATE).edit().putString("server", server).apply();
+            sp.edit().putString("server", server).putString("mode", engine.getUserMode()).apply();
             stopSimulation();
             if (sim != null && !sim.isEmpty()) startSimulation(sim);
             else startLocationUpdates(false);
+        } else {
+            // 系統回收後以 START_STICKY 重新建立服務時 intent 為 null（Codex 審查 #1）：
+            // 從儲存的設定恢復實際定位守護；展示模擬沒有意義，直接結束，避免顯示「守護中」卻沒有在定位
+            if (sp.getBoolean("simulating", false)) {
+                stopSelf();
+                return START_NOT_STICKY;
+            }
+            engine.setUserMode(sp.getString("mode", "auto"));
+            startLocationUpdates(false);
         }
+        sp.edit().putBoolean("simulating", simRoute != null).apply();
         publish();
         return START_STICKY;
     }
@@ -341,15 +352,20 @@ public class GuardianService extends Service {
         publish();
     }
 
+    @SuppressWarnings("deprecation")
     private void vibrate() {
+        long[] pattern = {0, 350, 150, 350};
         try {
             android.os.Vibrator v = Build.VERSION.SDK_INT >= 31
                     ? ((android.os.VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE)).getDefaultVibrator()
                     : (android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-            if (v != null && v.hasVibrator()) {
-                v.vibrate(android.os.VibrationEffect.createWaveform(new long[]{0, 350, 150, 350}, -1));
+            if (v == null || !v.hasVibrator()) return; // 平板常沒有震動馬達
+            if (Build.VERSION.SDK_INT >= 26) {
+                v.vibrate(android.os.VibrationEffect.createWaveform(pattern, -1));
+            } else {
+                v.vibrate(pattern, -1); // Android 7（API 24–25）沒有 VibrationEffect（Codex 審查 #3）
             }
-        } catch (Exception ignored) { /* 平板常沒有震動馬達 */ }
+        } catch (RuntimeException ignored) { /* 震動失敗不影響其他提醒 */ }
     }
 
     private void speak(String s) {

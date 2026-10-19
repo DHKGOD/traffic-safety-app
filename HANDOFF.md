@@ -92,3 +92,13 @@
 | 5 | 設定頁顯示的模型可能是對照模型 | 成立 | 改為指定 cause_scenario；E2E 加測 |
 
 驗證：刪除危險路口、前端 dist、模型檔後執行一鍵啟動，三者皆自動重建；E2E 15/15。
+
+### 第 2 次（2026-10-20，Codex review，範圍 256f30f..3f43567：背景守護模式）
+
+| # | Codex 指出 | 判斷 | 處理 |
+|---|---|---|---|
+| 1 | START_STICKY 重啟時 intent 為 null，服務顯示守護中卻沒在定位 | 成立 | 從 SharedPreferences 恢復交通方式並重新定位；展示模擬則直接結束 |
+| 2 | Location.hasSpeed() 在 API 24–25 不存在 | **不成立**：hasSpeed() 自 API 1 即有（API 26 新增的是 getSpeedAccuracyMetersPerSecond）；Android Lint NewApi 檢查 0 錯誤 | 不改 |
+| 3 | VibrationEffect 在 API 24–25 不存在（且 NoClassDefFoundError 不會被 catch Exception 接住） | 成立 | API < 26 改用 Vibrator.vibrate(long[], int) |
+
+驗證：Java 單元測試 6/6、Android Lint 0 錯誤、實機守護測試出現靈動島提醒。
