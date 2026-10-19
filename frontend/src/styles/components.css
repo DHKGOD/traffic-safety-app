@@ -341,3 +341,37 @@
 :root { --tab-cut: #f7f7f9; }
 :root[data-theme="dark"] { --tab-cut: #1c1c1e; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tab-cut: #1c1c1e; } }
+/* iOS 開關 */
+.switch {
+  appearance: none; -webkit-appearance: none; flex: none; position: relative; cursor: pointer;
+  width: 51px; height: 31px; border-radius: 16px; background: var(--fill-2); transition: background 0.25s; margin: 0;
+}
+.switch::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 3px 1px rgba(0, 0, 0, 0.06); transition: transform 0.3s var(--spring);
+}
+.switch:checked { background: var(--green); }
+.switch:checked::after { transform: translateX(20px); }
+
+/* 分享代碼 */
+.share-code { display: flex; justify-content: center; gap: 8px; margin: 18px 0 14px; }
+.share-code span {
+  width: 46px; height: 58px; border-radius: 12px; background: var(--card); display: grid; place-items: center;
+  font-family: var(--font-rounded); font-size: 30px; font-weight: 700; box-shadow: var(--shadow-1);
+}
+
+/* 長輩模式：字放大、點擊區加大 */
+html.elder { font-size: 19px; }
+html.elder body { font-size: 19px; }
+html.elder .cell-title { font-size: 19px; }
+html.elder .cell-sub { font-size: 16px; }
+html.elder .cell { min-height: 56px; }
+html.elder .t-title3, html.elder .sheet-head .t-title3 { font-size: 23px; }
+html.elder .chip { height: 38px; font-size: 16px; padding: 0 14px; }
+html.elder .search-field { height: 46px; font-size: 18px; }
+html.elder .hs-count .num { font-size: 22px; }
+html.elder .rank { width: 40px; height: 40px; font-size: 18px; }
+html.elder .tab { font-size: 12px; }
+html.elder .tab .icon { font-size: 28px; }
+html.elder .advice-item { font-size: 18px; }
+.code-in::placeholder { letter-spacing: normal; font-weight: 400; }

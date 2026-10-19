@@ -2,6 +2,7 @@
 import { registerPlugin } from '@capacitor/core'
 import { getServer, isNative } from './api.js'
 import { emit } from './store.js'
+import { elderMode } from './family.js'
 
 const Native = registerPlugin('Guardian')
 
@@ -39,7 +40,7 @@ export async function initGuardian() {
 /** 開始守護。simulate 為路線座標時，服務會沿路線模擬移動（展示用，平板沒有 GPS 也能用）。 */
 export async function startGuardian({ simulate, simSpeed } = {}) {
   if (!isNative()) throw new Error('背景守護需要安裝 Android App')
-  const opts = { server: getServer(), mode: guardianMode() }
+  const opts = { server: getServer(), mode: guardianMode(), elder: elderMode() }
   if (simulate) Object.assign(opts, { simulate, simSpeed: simSpeed || 6 })
   const r = await Native.start(opts)
   apply({ ...guardianState, ...r, simulating: !!simulate })

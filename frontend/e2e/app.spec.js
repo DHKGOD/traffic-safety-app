@@ -300,6 +300,48 @@ test('背景守護：網頁版顯示說明、設定頁可選交通方式', async
   await expect(root.locator('.ai-ver')).toContainText('情境預測')
 })
 
+test('家人模式：分享代碼 → 用代碼下載 → 長輩模式', async ({ page, request }) => {
+  await openApp(page)
+  await page.locator('[data-tab="settings"]').click()
+  const root = page.locator('[data-root="settings"]')
+  await root.locator('[data-family]').click()
+  await expect(root.locator('.t-large-title, .nav-title').filter({ hasText: '家人模式' }).first()).toBeAttached()
+  // 儲存目前路線
+  await root.locator('[data-save]').click()
+  await expect(root.locator('.saved [data-i]')).toHaveCount(1)
+  // 分享 → 產生 6 碼代碼（存進資料庫）
+  await root.locator('[data-share]').click()
+  const code = (await page.locator('.share-code').innerText()).replace(/\s/g, '')
+  expect(code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/)
+  const dbRow = await (await request.get(`/api/routes/${code}`)).json()
+  expect(dbRow.end_name).toBe('捷運新莊站')
+  await page.locator('.modal [data-close]').click()
+  // 模擬「長輩的手機」：清掉常用路線，輸入代碼下載
+  await page.evaluate(() => localStorage.removeItem('savedRoutes'))
+  await page.reload()
+  await page.locator('[data-tab="settings"]').click()
+  await root.locator('[data-family]').click()
+  await root.locator('.code-in').fill(code.toLowerCase())
+  await root.locator('[data-fetch]').click()
+  await expect(page.locator('[data-root="map"]')).toHaveClass(/active/)
+  await expect(page.locator('.route-q')).toContainText('捷運新莊站')
+  expect(await page.evaluate(() => document.documentElement.classList.contains('elder'))).toBe(true)
+  // 長輩模式下，AI 情境預測預設 65 歲以上
+  const first = page.locator('.hs-list .hs-cell').first()
+  await first.click()
+  await first.click()
+  await expect(page.locator('.ai-card [data-ai="age"]')).toContainText('65 歲以上')
+  // 錯誤代碼
+  await page.locator('[data-tab="settings"]').click()
+  await root.locator('[data-family]').click()
+  await root.locator('.code-in').fill('ZZZZZZ')
+  await root.locator('[data-fetch]').click()
+  await expect(page.locator('.toast', { hasText: '找不到這個代碼' })).toBeVisible()
+  // 關閉長輩模式
+  await root.locator('.elder-sw').click()
+  expect(await page.evaluate(() => document.documentElement.classList.contains('elder'))).toBe(false)
+})
+
 test('深色模式切換', async ({ page }) => {
   await openApp(page)
   await page.locator('[data-tab="settings"]').click()

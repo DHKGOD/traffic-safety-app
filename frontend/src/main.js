@@ -18,8 +18,11 @@ import { applyTheme, savedTheme, settingsView, testServer } from './views/settin
 import { openSubmit } from './views/submit.js'
 import { startWalk } from './walk.js'
 import { initGuardian } from './guardian.js'
+import { applyElderMode } from './family.js'
+import { familyView } from './views/family.js'
 
 applyTheme(savedTheme())
+applyElderMode()
 // Android WebView 的毛玻璃不一定有效，App 內改用實色材質（見 views.css html.no-blur）
 if (isNative() || !CSS.supports('backdrop-filter', 'blur(2px)')) document.documentElement.classList.add('no-blur')
 
@@ -69,7 +72,10 @@ stacks.feed.setRoot(feedView({
   getCenter: () => { const c = mapPage.map?.getCenter(); return c ? { lat: c.lat, lon: c.lng } : { lat: 25.0358, lon: 121.4420 } },
   focusReport: (r) => { if (!r) return; switchTab('map'); setTimeout(() => mapPage.map?.flyTo([r.lat, r.lon], 18), 50) },
 }))
-stacks.settings.setRoot(settingsView({ openAdmin: () => stacks.settings.push(adminView()) }))
+stacks.settings.setRoot(settingsView({
+  openAdmin: () => stacks.settings.push(adminView()),
+  openFamily: () => stacks.settings.push(familyView({ goMap: () => { while (stacks.settings.pop()) { /* 回到設定首頁 */ } switchTab('map') } })),
+}))
 
 $('.tabbar').addEventListener('click', (e) => {
   const b = e.target.closest('[data-tab]')

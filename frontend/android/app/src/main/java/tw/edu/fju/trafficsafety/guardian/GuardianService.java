@@ -84,6 +84,7 @@ public class GuardianService extends Service {
     private boolean highAccuracy;
     private int lastAlertId;
     private IslandOverlay island;
+    private boolean elder;
 
     // 模擬（展示用）：沿路線移動
     private List<double[]> simRoute;
@@ -124,9 +125,10 @@ public class GuardianService extends Service {
         if (intent != null) {
             server = intent.getStringExtra("server") != null ? intent.getStringExtra("server") : server;
             engine.setUserMode(intent.getStringExtra("mode"));
+            elder = intent.getBooleanExtra("elder", false);
             String sim = intent.getStringExtra("simulate");
             simSpeed = intent.getDoubleExtra("simSpeed", 1.4);
-            sp.edit().putString("server", server).putString("mode", engine.getUserMode()).apply();
+            sp.edit().putString("server", server).putString("mode", engine.getUserMode()).putBoolean("elder", elder).apply();
             stopSimulation();
             if (sim != null && !sim.isEmpty()) startSimulation(sim);
             else startLocationUpdates(false);
@@ -138,8 +140,12 @@ public class GuardianService extends Service {
                 return START_NOT_STICKY;
             }
             engine.setUserMode(sp.getString("mode", "auto"));
+            elder = sp.getBoolean("elder", false);
             startLocationUpdates(false);
         }
+        // 長輩模式：提醒距離 ×1.3、語音放慢
+        engine.setRadiusScale(elder ? 1.3 : 1.0);
+        if (tts != null) tts.setSpeechRate(elder ? 0.85f : 1.0f);
         sp.edit().putBoolean("simulating", simRoute != null).apply();
         publish();
         return START_STICKY;
@@ -370,6 +376,7 @@ public class GuardianService extends Service {
 
     private void speak(String s) {
         if (tts != null && ttsReady) {
+            tts.setSpeechRate(elder ? 0.85f : 1.0f); // TTS 初始化完成後才會生效，所以每次播報前設定
             Bundle p = new Bundle();
             tts.speak(s, TextToSpeech.QUEUE_FLUSH, p, "guardian-" + System.currentTimeMillis());
         }

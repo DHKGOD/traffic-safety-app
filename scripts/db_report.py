@@ -23,6 +23,7 @@ TABLES = [
     ("user_report", "使用者回報"),
     ("model_version", "AI 模型版本"),
     ("prediction", "AI 預測紀錄"),
+    ("shared_route", "家人分享路線"),
 ]
 
 QUERIES = {

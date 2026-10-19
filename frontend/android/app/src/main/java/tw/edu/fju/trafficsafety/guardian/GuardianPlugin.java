@@ -71,6 +71,7 @@ public class GuardianPlugin extends Plugin {
         Intent i = new Intent(getContext(), GuardianService.class);
         i.putExtra("server", call.getString("server", ""));
         i.putExtra("mode", call.getString("mode", "auto"));
+        i.putExtra("elder", call.getBoolean("elder", false));
         if (call.getArray("simulate") != null) {
             i.putExtra("simulate", call.getArray("simulate").toString());
             i.putExtra("simSpeed", call.getDouble("simSpeed", 1.4));

@@ -53,7 +53,9 @@ STEPS: list[tuple[str, str, float]] = [
     ("17_submit_close", "document.querySelector('.modal [data-close]').click()", 1.2),
     ("18_settings", "document.querySelector('[data-tab=settings]').click()", 2.5),
     ("19_admin", "document.querySelector('[data-admin]').click()", 3),
-    ("20_admin_back", "document.querySelector('[data-root=settings] .page:last-child [data-back]').click(); document.querySelector('[data-tab=map]').click()", 2),
+    ("20_admin_back", "document.querySelector('[data-root=settings] .page:last-child [data-back]').click()", 1.5),
+    ("21_family", "document.querySelector('[data-family]').click()", 2.5),
+    ("22_family_back", "document.querySelector('[data-root=settings] .page:last-child [data-back]').click(); document.querySelector('[data-tab=map]').click()", 2),
 ]
 
 

@@ -21,7 +21,7 @@ export async function testServer(url) {
   return h
 }
 
-export function settingsView({ openAdmin }) {
+export function settingsView({ openAdmin, openFamily }) {
   const p = makePage({ title: '設定' })
   p.body.innerHTML = `
     <div class="section" style="margin-top:4px">
@@ -38,6 +38,17 @@ export function settingsView({ openAdmin }) {
         <button class="cell tappable" data-test style="justify-content:center;color:var(--blue);font-weight:600">測試連線並儲存</button>
       </div>
       <div class="section-footer">本機模擬雲端：在電腦執行 start_server.bat，畫面會顯示要輸入的網址（手機需連同一個 Wi-Fi）。搬到雲端主機後，只要在這裡改成新網址即可，不用重新安裝 App。</div>
+    </div>
+
+    <div class="section">
+      <div class="list">
+        <button class="cell tappable" data-family style="--sep-inset:58px">
+          <span class="cell-icon" style="background:var(--teal)">${icon('family')}</span>
+          <span class="cell-main"><span class="cell-title" style="display:block">家人模式</span>
+          <span class="cell-sub" style="display:block">替長輩設定常走路線、長輩模式</span></span>
+          <span class="chev">${icon('chevronRight')}</span>
+        </button>
+      </div>
     </div>
 
     <div class="section">
@@ -152,6 +163,7 @@ export function settingsView({ openAdmin }) {
   p.el.addEventListener('click', (e) => {
     if (e.target.closest('[data-test]')) test(true)
     if (e.target.closest('[data-admin]')) openAdmin()
+    if (e.target.closest('[data-family]')) openFamily()
     if (e.target.closest('[data-gmode]')) pickMode()
     if (e.target.closest('[data-overlay]')) requestOverlay().then((r) => { if (r?.allowed) toast('靈動島提醒已開啟', { icon: 'sparkles', color: '#000' }); else toast('請在接下來的頁面開啟「路口安全通」的權限，再回到 App', { icon: 'sparkles', color: '#000', ms: 5000 }) }).catch((err) => toastError(err.message))
     if (e.target.closest('[data-gtest]')) testGuardianAlert().then(() => toast('已送出測試通知，請看螢幕上方', { icon: 'shield', color: 'var(--blue)' })).catch((err) => toastError(err.message || '無法送出通知'))

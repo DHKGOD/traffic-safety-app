@@ -1,6 +1,7 @@
 // 路口體檢報告頁：事故數、時段分布、主要肇因與型態、改善建議、附近回報、AI 預測、匯出
 import { api } from '../api.js'
 import { exportReport } from '../export.js'
+import { elderMode } from '../family.js'
 import { icon } from '../icons.js'
 import { L, createMap, hotspotIcon } from '../map-utils.js'
 import { $, LEVEL, actionSheet, disclaimer, esc, fmt, makePage, toast, toastError } from '../ui.js'
@@ -153,7 +154,7 @@ export function reportView(h, { back = '地圖' } = {}) {
     vehicle: { title: '交通工具', options: [{ value: 'scooter', label: '騎機車' }, { value: 'car', label: '開汽車', icon: 'car' }, { value: 'bike', label: '騎自行車', icon: 'bike' }] },
     age: { title: '年齡', options: [{ value: 'young', label: '18–24 歲' }, { value: 'adult', label: '25–44 歲' }, { value: 'middle', label: '45–64 歲' }, { value: 'senior', label: '65 歲以上（長輩）' }] },
   }
-  const scenario = { weather: 'all', period: 'all', vehicle: 'scooter', age: 'adult' }
+  const scenario = { weather: 'all', period: 'all', vehicle: 'scooter', age: elderMode() ? 'senior' : 'adult' } // 長輩模式預設 65 歲以上
   const short = (k) => {
     const o = AI_OPTS[k].options.find((x) => x.value === scenario[k])
     return k === 'weather' && scenario[k] === 'all' ? '常見天候' : k === 'period' && scenario[k] === 'all' ? '常見時段' : o.label.replace(/（.*）/, '')

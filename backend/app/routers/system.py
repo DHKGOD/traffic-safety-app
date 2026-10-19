@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api", tags=["系統"])
 TABLES = [
     ("accident", "事故"), ("party", "當事人"), ("hotspot", "危險路口"), ("cause_code", "肇因代碼"),
     ("collision_type", "事故型態代碼"), ("import_batch", "匯入批次"), ("user_report", "使用者回報"),
-    ("model_version", "AI 模型版本"), ("prediction", "AI 預測紀錄"),
+    ("model_version", "AI 模型版本"), ("prediction", "AI 預測紀錄"), ("shared_route", "家人分享路線"),
 ]
 
 

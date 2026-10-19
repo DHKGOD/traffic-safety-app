@@ -42,6 +42,7 @@ public class GuardianEngine {
     private final Map<Integer, Double> lastDistance = new HashMap<>();
     private final Map<Integer, Long> lastAlertAt = new HashMap<>();
     private String userMode = "auto"; // auto / foot / bike / car / transit
+    private double radiusScale = 1.0; // 長輩模式 1.3：提早提醒
 
     public synchronized void setHotspots(List<Hotspot> list) {
         hotspots.clear();
@@ -54,6 +55,8 @@ public class GuardianEngine {
     public synchronized void setUserMode(String m) { userMode = m == null ? "auto" : m; }
 
     public synchronized String getUserMode() { return userMode; }
+
+    public synchronized void setRadiusScale(double s) { radiusScale = s > 0 ? s : 1.0; }
 
     /** 依使用者設定與速度（m/s，未知時 <0）決定實際交通方式。 */
     public String effectiveMode(double speed) {
@@ -76,7 +79,7 @@ public class GuardianEngine {
     public synchronized Alert onLocation(double lat, double lon, double speed, long now) {
         String mode = effectiveMode(speed);
         if ("transit".equals(mode)) return null;
-        double radius = alertRadius(mode);
+        double radius = alertRadius(mode) * radiusScale;
         Alert best = null;
         for (Hotspot h : hotspots) {
             double d = distance(lat, lon, h.lat, h.lon);

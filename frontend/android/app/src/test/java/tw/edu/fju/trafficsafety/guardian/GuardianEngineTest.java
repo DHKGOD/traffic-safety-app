@@ -67,6 +67,16 @@ public class GuardianEngineTest {
     }
 
     @Test
+    public void elderModeAlertsEarlier() {
+        // 一般步行 60 m 才提醒；長輩模式 ×1.3 = 78 m，在 70 m 就會提醒
+        assertNull(e.onLocation(HLAT - 70 * M, HLON, 1.0, 1000));
+        GuardianEngine elder = new GuardianEngine();
+        elder.setHotspots(Arrays.asList(new GuardianEngine.Hotspot(1, "x", HLAT, HLON, "high", 25)));
+        elder.setRadiusScale(1.3);
+        assertNotNull(elder.onLocation(HLAT - 70 * M, HLON, 1.0, 1000));
+    }
+
+    @Test
     public void autoModeBySpeed() {
         assertEquals("foot", e.effectiveMode(1.3));
         assertEquals("bike", e.effectiveMode(5));

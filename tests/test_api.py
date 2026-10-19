@@ -99,5 +99,20 @@ def test_create_and_poll_report(client):
         c.execute("DELETE FROM user_report WHERE device_id = 'pytest'")
 
 
+def test_share_route_roundtrip(client):
+    body = {"name": "pytest 阿嬤買菜", "mode": "foot", "start_name": "家", "end_name": "市場",
+            "points": [FJU, XINZHUANG], "distance_m": 2174, "duration_s": 1753, "for_elder": True}
+    r = client.post("/api/routes", json=body)
+    assert r.status_code == 201
+    code = r.json()["code"]
+    assert len(code) == 6 and not set(code) & set("01OI")
+    got = client.get(f"/api/routes/{code.lower()}").json()  # 大小寫不拘
+    assert got["name"] == body["name"] and got["points"] == [list(FJU), list(XINZHUANG)]
+    assert client.get("/api/routes/ZZZZZZ").status_code == 404
+    assert client.post("/api/routes", json={**body, "points": [(0, 0), (1, 1)]}).status_code == 422
+    with db.conn() as c:
+        c.execute("DELETE FROM shared_route WHERE name LIKE 'pytest%%'")
+
+
 def test_report_validation(client):
     assert client.post("/api/reports", json={"lat": 0, "lon": 0}).status_code == 422

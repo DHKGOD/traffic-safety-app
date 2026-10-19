@@ -18,7 +18,7 @@ import psycopg
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import ROOT, database_url, env  # noqa: E402
 
-DROP = """DROP TABLE IF EXISTS prediction, model_version, user_report, party, accident, hotspot,
+DROP = """DROP TABLE IF EXISTS shared_route, prediction, model_version, user_report, party, accident, hotspot,
           collision_type, cause_code, import_batch, schema_migrations CASCADE"""
 
 
