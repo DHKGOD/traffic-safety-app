@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">路口安全通</string>
+    <string name="title_activity_main">路口安全通</string>
+    <string name="package_name">tw.edu.fju.trafficsafety</string>
+    <string name="custom_url_scheme">tw.edu.fju.trafficsafety</string>
+</resources>

@@ -1,0 +1,17 @@
+{
+  "appId": "tw.edu.fju.trafficsafety",
+  "appName": "路口安全通",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": true
+    }
+  }
+}

@@ -1,0 +1,184 @@
+/* ===== 各頁面專屬樣式 ===== */
+
+/* --- 地圖頁 --- */
+.map-page { background: var(--bg); }
+#map { position: absolute; inset: 0; z-index: 0; background: var(--card-2); }
+.map-top {
+  position: absolute; z-index: 25; left: 12px; right: 12px; top: calc(var(--safe-top) + 10px);
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.map-top > * { pointer-events: auto; }
+.route-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 16px;
+  background: var(--glass-strong); backdrop-filter: saturate(180%) blur(24px); -webkit-backdrop-filter: saturate(180%) blur(24px);
+  box-shadow: var(--shadow-1); border: 0.5px solid var(--glass-border);
+}
+.route-glyph { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: none; }
+.route-glyph i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+.route-glyph b { width: 2px; height: 12px; background: var(--label-3); border-radius: 1px; display: block; }
+.route-texts { flex: 1; min-width: 0; }
+.route-texts .from, .route-texts .to { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.route-texts .to { margin-top: 6px; }
+.route-meta { text-align: right; flex: none; }
+.route-meta .num { font-size: 20px; font-weight: 700; }
+.mode-bar {
+  padding: 8px; border-radius: 16px;
+  background: var(--glass-strong); backdrop-filter: saturate(180%) blur(24px); -webkit-backdrop-filter: saturate(180%) blur(24px);
+  box-shadow: var(--shadow-1); border: 0.5px solid var(--glass-border);
+  display: flex; flex-direction: column; gap: 7px;
+}
+.map-fabs {
+  position: absolute; right: 12px; z-index: 26;
+  top: calc(var(--safe-top) + 196px);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 2px 10px; }
+.sheet-head .t-title3 { display: flex; align-items: center; gap: 8px; }
+.summary-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.summary-row .mini { background: var(--card); border-radius: 12px; padding: 10px 12px; }
+.summary-row .mini .num { font-size: 22px; font-weight: 700; display: block; }
+.summary-row .mini span:last-child { font-size: 12px; color: var(--label-2); }
+.hs-cell { gap: 12px; }
+.rank {
+  width: 34px; height: 34px; border-radius: 10px; flex: none;
+  display: grid; place-items: center; font-family: var(--font-rounded); font-weight: 700; font-size: 16px; color: #fff;
+}
+.rank.high { background: linear-gradient(160deg, #ff6b5f, var(--red)); }
+.rank.medium { background: linear-gradient(160deg, #ffb340, var(--orange)); }
+.rank.low { background: linear-gradient(160deg, #ffe066, #f5b800); }
+.hs-count { text-align: right; flex: none; }
+.hs-count .num { font-size: 19px; font-weight: 700; display: block; line-height: 1.1; }
+.hs-count small { font-size: 11px; color: var(--label-2); }
+
+/* Leaflet 標記與外觀 */
+.leaflet-container { font-family: var(--font); background: var(--card-2); }
+.leaflet-control-attribution {
+  font-size: 9.5px !important; background: var(--glass) !important; color: var(--label-2) !important;
+  border-radius: 6px 0 0 0; backdrop-filter: blur(10px);
+}
+.leaflet-control-attribution a { color: var(--label-2) !important; }
+.leaflet-control-zoom { display: none; }
+.hs-marker { position: relative; display: grid; place-items: center; }
+.hs-marker .core {
+  border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  display: grid; place-items: center; color: #fff; font-weight: 700; font-family: var(--font-rounded); font-size: 12px;
+  transition: transform 0.25s var(--spring);
+}
+.hs-marker.high .core { background: var(--red); }
+.hs-marker.medium .core { background: var(--orange); }
+.hs-marker.low .core { background: #f5b800; }
+.hs-marker.selected .core { transform: scale(1.35); }
+.hs-marker.high::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--red); opacity: 0.35;
+  animation: pulse-ring 2.2s ease-out infinite;
+}
+.pin {
+  width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  display: grid; place-items: center; border: 2.5px solid #fff; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+.pin span { transform: rotate(45deg); color: #fff; font-size: 13px; font-weight: 700; }
+.report-marker {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--purple); border: 2.5px solid #fff;
+  display: grid; place-items: center; color: #fff; font-size: 14px; font-weight: 800; box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+.report-marker.fresh { animation: pop-in 0.5s var(--spring); }
+.me-dot { width: 20px; height: 20px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 6px color-mix(in srgb, var(--blue) 25%, transparent), 0 2px 6px rgba(0,0,0,.3); }
+.walker { width: 22px; height: 22px; border-radius: 50%; background: var(--blue); border: 3.5px solid #fff; box-shadow: 0 0 0 8px color-mix(in srgb, var(--blue) 22%, transparent), 0 2px 8px rgba(0,0,0,.35); }
+.leaflet-popup-content-wrapper { border-radius: 14px; background: var(--glass-strong); color: var(--label); backdrop-filter: blur(20px); box-shadow: var(--shadow-2); }
+.leaflet-popup-tip { background: var(--glass-strong); }
+.leaflet-popup-content { margin: 12px 14px; font-size: 14px; }
+
+/* 平板／橫式：底部抽屜變成左側浮動面板（類似 iPad 地圖） */
+@media (min-width: 900px) and (orientation: landscape), (min-width: 1100px) {
+  .sheet {
+    left: 16px; right: auto; width: 390px; top: calc(var(--safe-top) + 16px); bottom: calc(var(--tabbar-h) + 16px);
+    height: auto; border-radius: var(--radius-l); transform: none !important; box-shadow: var(--shadow-2);
+    border: 0.5px solid var(--glass-border);
+  }
+  .sheet-grabber { display: none; }
+  .sheet-body { padding-bottom: 16px; padding-top: 12px; }
+  .map-top { left: 422px; right: 16px; flex-direction: row; align-items: flex-start; }
+  .map-top .route-card { flex: 1; max-width: 420px; }
+  .map-top .mode-bar { width: 340px; }
+  .map-fabs { top: calc(var(--safe-top) + 120px); right: 16px; }
+  .tabbar { justify-content: center; gap: 40px; }
+}
+
+/* --- 路口報告 --- */
+.report-hero { padding: calc(var(--safe-top) + 52px) 16px 6px; max-width: 760px; margin: 0 auto; }
+.report-hero .sub { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.mini-map { height: 160px; border-radius: var(--radius); overflow: hidden; margin-top: 14px; position: relative; }
+.chart-card { background: var(--card); border-radius: var(--radius); padding: 16px 16px 12px; }
+.chart-card h4 { margin: 0; font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.chart-card .hint { font-size: 13px; color: var(--label-2); margin-top: 2px; }
+.bars { display: flex; align-items: flex-end; gap: 3px; height: 120px; margin-top: 16px; }
+.bars .bar { flex: 1; border-radius: 4px 4px 2px 2px; background: color-mix(in srgb, var(--blue) 30%, transparent); min-height: 3px; transform-origin: bottom; animation: bar-grow 0.7s var(--ease) both; }
+.bars .bar.peak { background: var(--blue); }
+@keyframes bar-grow { from { transform: scaleY(0); } }
+.bar-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--label-2); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.hbars { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.hbar-label { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; margin-bottom: 5px; }
+.hbar-label span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-label .num { color: var(--label-2); font-weight: 600; }
+.hbar-track { height: 8px; border-radius: 4px; background: var(--fill); overflow: hidden; }
+.hbar-fill { height: 100%; border-radius: 4px; transform-origin: left; animation: hbar-grow 0.8s var(--ease) both; }
+@keyframes hbar-grow { from { transform: scaleX(0); } }
+.stack-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin-top: 14px; gap: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 13px; color: var(--label-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.advice-item { display: flex; gap: 12px; padding: 12px 0; align-items: flex-start; font-size: 16px; line-height: 1.45; }
+.advice-item + .advice-item { border-top: 0.5px solid var(--sep); }
+.advice-item .icon { font-size: 20px; flex: none; margin-top: 1px; }
+.charts-2 { display: grid; gap: 12px; }
+@media (min-width: 700px) { .charts-2 { grid-template-columns: 1fr 1fr; } }
+
+/* --- 回報 --- */
+.cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.cat {
+  background: var(--card); border-radius: var(--radius); padding: 16px 8px 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 14px; font-weight: 600;
+  border: 2px solid transparent; transition: border-color 0.2s, transform 0.15s;
+}
+.cat:active { transform: scale(0.96); }
+.cat .cat-ic { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 22px; }
+.cat.active { border-color: var(--blue); }
+.loc-card { display: flex; align-items: center; gap: 12px; }
+.success { text-align: center; padding: 40px 20px 10px; }
+.success .check {
+  width: 84px; height: 84px; border-radius: 50%; background: var(--green); color: #fff; font-size: 44px;
+  display: grid; place-items: center; margin: 0 auto 18px; animation: pop-in 0.5s var(--spring);
+}
+.feed-time { font-size: 13px; color: var(--label-2); white-space: nowrap; }
+.feed-new { animation: feed-flash 2.4s ease-out; }
+@keyframes feed-flash { 0% { background: color-mix(in srgb, var(--blue) 18%, var(--card)); } 100% { background: var(--card); } }
+
+/* --- 設定 --- */
+.server-status { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.app-icon-hero { display: flex; flex-direction: column; align-items: center; padding: 8px 0 4px; gap: 10px; }
+.app-icon {
+  width: 76px; height: 76px; border-radius: 18px;
+  background: linear-gradient(150deg, #ff6b5f 0%, #ff3b30 45%, #d70015 100%);
+  display: grid; place-items: center; color: #fff; font-size: 40px; box-shadow: var(--shadow-1);
+}
+
+/* --- 後台 --- */
+.er { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.er-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.er-row code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; background: var(--fill); padding: 2px 7px; border-radius: 6px; }
+.er-row .arrow { color: var(--label-3); }
+
+/* --- 首次設定 --- */
+.onboard { padding: calc(var(--safe-top) + 48px) 24px 24px; max-width: 520px; margin: 0 auto; text-align: center; }
+.onboard .app-icon { margin: 0 auto 22px; width: 96px; height: 96px; border-radius: 22px; font-size: 52px; }
+.feature { display: flex; gap: 16px; text-align: left; align-items: flex-start; margin: 22px 0; }
+.feature .icon { font-size: 30px; color: var(--blue); flex: none; margin-top: 2px; }
+
+/* --- 模擬行走：紅框警示 --- */
+.alert-frame {
+  position: fixed; inset: 0; z-index: 90; pointer-events: none;
+  border: 8px solid var(--red); border-radius: 0;
+  box-shadow: inset 0 0 60px color-mix(in srgb, var(--red) 55%, transparent);
+  animation: alert-blink 0.9s ease-in-out infinite alternate;
+}
+@keyframes alert-blink { from { opacity: 1; } to { opacity: 0.35; } }

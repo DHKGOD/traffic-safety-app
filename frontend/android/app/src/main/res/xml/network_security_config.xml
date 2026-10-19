@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  本機模擬雲端階段：手機用 http 連電腦的區網 IP（IP 會變動，無法逐一列出），所以允許明文連線。
+  搬到雲端並改用 HTTPS 後，可把 base-config 的 cleartextTrafficPermitted 改成 false。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

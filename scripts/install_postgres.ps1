@@ -1,4 +1,4 @@
-# 在 Windows 安裝免安裝版 PostgreSQL 18 + PostGIS 3.6（不需系統管理員權限、不建立 Windows 服務）
+﻿# 在 Windows 安裝免安裝版 PostgreSQL 18 + PostGIS 3.6（不需系統管理員權限、不建立 Windows 服務）
 # 安裝位置：%LOCALAPPDATA%\Programs\pgsql18
 # 來源：EnterpriseDB 官方 binaries zip、OSGeo 官方 PostGIS bundle
 # 用法（PowerShell）：powershell -ExecutionPolicy Bypass -File scripts\install_postgres.ps1
