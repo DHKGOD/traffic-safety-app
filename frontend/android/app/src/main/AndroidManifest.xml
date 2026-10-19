@@ -49,6 +49,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 靈動島懸浮提醒：顯示在其他應用程式上層（使用者需在系統設定手動開啟） -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
     <queries><intent><action android:name="android.intent.action.TTS_SERVICE" /></intent></queries>
 </manifest>

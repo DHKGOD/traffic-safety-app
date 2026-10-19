@@ -99,6 +99,33 @@ public class GuardianPlugin extends Plugin {
         }
     }
 
+    /** 「靈動島」懸浮提醒是否已取得「顯示在其他應用程式上層」權限。 */
+    @PluginMethod
+    public void overlayStatus(PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("allowed", IslandOverlay.allowed(getContext()));
+        call.resolve(r);
+    }
+
+    /** 打開系統設定頁，讓使用者開啟「顯示在其他應用程式上層」。 */
+    @PluginMethod
+    public void requestOverlay(PluginCall call) {
+        if (IslandOverlay.allowed(getContext())) {
+            JSObject r = new JSObject();
+            r.put("allowed", true);
+            call.resolve(r);
+            return;
+        }
+        Intent i = new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                android.net.Uri.parse("package:" + getContext().getPackageName()));
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(i);
+        JSObject r = new JSObject();
+        r.put("allowed", false);
+        r.put("opened", true);
+        call.resolve(r);
+    }
+
     /** 送出一則測試提醒（確認通知、聲音、權限都正常）。 */
     @PluginMethod
     public void testAlert(PluginCall call) {
@@ -124,10 +151,15 @@ public class GuardianPlugin extends Plugin {
                 .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
                 .setColor(0xFFFF3B30)
                 .setAutoCancel(true)
-                .setTimeoutAfter(15000);
+                .setTimeoutAfter(15000)
+                .setGroup("guardian_test")
+                .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_ALL);
         try {
             NotificationManagerCompat.from(getContext()).notify(GuardianService.ID_ALERT, b.build());
-            call.resolve();
+            new IslandOverlay(getContext()).show("測試提醒・前方危險路口", "中正路 / 思源路・80 公尺・事故 25 件", 0xFFFF3B30, 6000);
+            JSObject r = new JSObject();
+            r.put("overlay", IslandOverlay.allowed(getContext()));
+            call.resolve(r);
         } catch (SecurityException e) {
             call.reject("沒有通知權限", "NO_NOTIFICATION");
         }

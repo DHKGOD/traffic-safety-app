@@ -53,5 +53,15 @@ export async function stopGuardian() {
 
 export async function testGuardianAlert() {
   if (!isNative()) throw new Error('通知測試需要安裝 Android App')
-  await Native.testAlert()
+  return Native.testAlert()
+}
+
+/** 「靈動島」懸浮提醒需要「顯示在其他應用程式上層」權限（使用者在系統設定頁開啟）。 */
+export async function overlayAllowed() {
+  if (!isNative()) return false
+  return (await Native.overlayStatus()).allowed
+}
+export async function requestOverlay() {
+  if (!isNative()) throw new Error('靈動島提醒需要安裝 Android App')
+  return Native.requestOverlay()
 }

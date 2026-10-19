@@ -3,7 +3,7 @@ import { api, deviceId, getServer, isNative, normalize, setServer } from '../api
 import { icon } from '../icons.js'
 import { emit, startPolling } from '../store.js'
 import { $, DISCLAIMER, actionSheet, esc, fmt, makePage, segmented, toast, toastError } from '../ui.js'
-import { GUARDIAN_MODES, guardianMode, setGuardianMode, testGuardianAlert } from '../guardian.js'
+import { GUARDIAN_MODES, guardianMode, overlayAllowed, requestOverlay, setGuardianMode, testGuardianAlert } from '../guardian.js'
 
 export function applyTheme(t) {
   if (t === 'auto') delete document.documentElement.dataset.theme
@@ -48,13 +48,18 @@ export function settingsView({ openAdmin }) {
           <span class="cell-main"><span class="cell-title" style="display:block">交通方式</span></span>
           <span class="cell-value g-mode"></span><span class="chev">${icon('chevronRight')}</span>
         </button>
+        <button class="cell tappable" data-overlay style="--sep-inset:58px">
+          <span class="cell-icon" style="background:#000">${icon('sparkles')}</span>
+          <span class="cell-main"><span class="cell-title" style="display:block">靈動島懸浮提醒</span></span>
+          <span class="cell-value ov-state">—</span><span class="chev">${icon('chevronRight')}</span>
+        </button>
         <button class="cell tappable" data-gtest style="--sep-inset:58px">
           <span class="cell-icon" style="background:var(--red)">${icon('warningFill')}</span>
           <span class="cell-main"><span class="cell-title" style="display:block">測試提醒通知</span></span>
           <span class="chev">${icon('chevronRight')}</span>
         </button>
       </div>
-      <div class="section-footer">在地圖右上角按 ${icon('shield')} 開啟。開啟後切到 Google 地圖或滑手機，接近危險路口時會跳出通知並語音提醒；「自動判斷」會依速度調整提醒距離（步行 60 公尺、騎車 120 公尺、開車 220 公尺），搭公車或捷運時可選「不提醒」。</div>
+      <div class="section-footer">在地圖右上角按 ${icon('shield')} 開啟。「靈動島懸浮提醒」會在螢幕最上方跳出黑色膠囊提醒，不受手機通知彈出設定影響（三星預設的「簡要」通知不會彈出橫幅）。開啟後切到 Google 地圖或滑手機，接近危險路口時會跳出通知並語音提醒；「自動判斷」會依速度調整提醒距離（步行 60 公尺、騎車 120 公尺、開車 220 公尺），搭公車或捷運時可選「不提醒」。</div>
     </div>
 
     <div class="section">
@@ -138,11 +143,17 @@ export function settingsView({ openAdmin }) {
     if (v) { setGuardianMode(v); renderMode() }
   }
   renderMode()
+  async function renderOverlay() {
+    try { $('.ov-state', p.el).textContent = (await overlayAllowed()) ? '已開啟' : '未開啟' } catch { /* 網頁版 */ }
+  }
+  renderOverlay()
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) renderOverlay() }) // 從系統設定頁回來時更新
 
   p.el.addEventListener('click', (e) => {
     if (e.target.closest('[data-test]')) test(true)
     if (e.target.closest('[data-admin]')) openAdmin()
     if (e.target.closest('[data-gmode]')) pickMode()
+    if (e.target.closest('[data-overlay]')) requestOverlay().then((r) => { if (r?.allowed) toast('靈動島提醒已開啟', { icon: 'sparkles', color: '#000' }); else toast('請在接下來的頁面開啟「路口安全通」的權限，再回到 App', { icon: 'sparkles', color: '#000', ms: 5000 }) }).catch((err) => toastError(err.message))
     if (e.target.closest('[data-gtest]')) testGuardianAlert().then(() => toast('已送出測試通知，請看螢幕上方', { icon: 'shield', color: 'var(--blue)' })).catch((err) => toastError(err.message || '無法送出通知'))
   })
   $('.srv', p.el).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.target.blur(); test(true) } })

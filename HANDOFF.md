@@ -9,7 +9,9 @@
 | 1 | **Windows 防火牆開放 TCP 8000**（手機走 Wi-Fi 連電腦需要；目前用 USB `adb reverse` 代替） | 系統管理員 PowerShell：`New-NetFirewallRule -DisplayName "交通安全App API 8000" -Direction Inbound -Protocol TCP -LocalPort 8000 -RemoteAddress LocalSubnet -Action Allow -Profile Any`，之後 App 設定頁改成 `192.168.1.108:8000` | 未完成 |
 | 2 | **氣象署開放資料授權碼**（雨天模式自動切換、天候風險 AI） | https://opendata.cwa.gov.tw 註冊登入 →「取得授權碼」→ `.env` 加一行 `CWA_API_KEY=...` | 未完成 |
 | 3 | **GitHub 遠端倉庫**（課程要求） | 決定公開或私人：`gh repo create traffic-safety-app --private --source . --push` | 未完成 |
-| 4 | （選用）Google 地圖底圖 | 需 Google Cloud 綁信用卡（付費）；目前用免費 OpenFreeMap 向量地圖，不需要 | 不需要 |
+| 4 | **在手機開啟「靈動島懸浮提醒」**（背景守護在其他 App 上顯示提醒） | App →「設定」→「靈動島懸浮提醒」→ 系統頁面開啟「路口安全通」。（測試期間我已用 adb 暫時開啟；通知、定位權限也是用 adb 授予，正式展示前建議在手機上重新確認一次） | 已用 adb 開啟（測試用） |
+| 5 | （選用）三星通知彈出樣式 | 手機「設定 → 通知 → 通知彈出樣式」改「詳細」，系統通知也會彈出完整橫幅；不改也沒關係，靈動島會提醒 | 選用 |
+| 6 | （選用）Google 地圖底圖 | 需 Google Cloud 綁信用卡（付費）；目前用免費 OpenFreeMap 向量地圖，不需要 | 不需要 |
 
 ## 目前階段與整體進度
 
@@ -19,7 +21,7 @@
 - ✅ 座標品質檢查（排除 5,999 件共用預設座標＋996 件座標與地址不符）
 - ✅ AI 肇因預測（時間切分、基準比較、model_version／prediction 可回查）＋報告頁「AI 情境預測」
 - ✅ Codex 交叉審查第 1 次（5 項全部修正）
-- 🔄 背景守護模式（原生外掛已完成並通過 6 項 Java 單元測試，待實機驗證）
+- ✅ 背景守護模式（前景服務＋提醒邏輯＋靈動島懸浮提醒＋語音震動；實機驗證：App 在背景時桌面上跳出提醒）
 - ⬜ 氣象署雨天模式（需授權碼）
 
 ## 最後完成的事情
@@ -49,6 +51,8 @@
 
 ## 已知問題與注意事項
 
+- **三星「通知彈出樣式：簡要」會停用一般 App 的彈出橫幅**（系統日誌 DISABLE_HEADS_UP）→ 背景守護改用自己畫的靈動島懸浮視窗（SYSTEM_ALERT_WINDOW），有權限時系統通知改為靜音紀錄。
+- **Gradle 單元測試在中文路徑下載入不到類別** → 用 scripts/test_guardian.ps1 在英文暫存路徑以 javac＋JUnit 執行。
 - **S21 FE 的 WebView 開 backdrop-filter 會把底下內容半透明重疊畫出**（不是正常模糊）。App 內（`html.no-blur`）一律關閉毛玻璃改實色；電腦瀏覽器仍有毛玻璃。
 - **專案路徑含中文**：PostgreSQL 程式裝在 `%LOCALAPPDATA%\Programs\pgsql18`；Gradle 用 `android.overridePathCheck=true`。
 - **防毒攔截 TLS**：Python truststore、`UV_SYSTEM_CERTS=1`、Gradle Windows-ROOT（已處理）。
@@ -69,6 +73,8 @@
 | 後端測試 | `uv run pytest` | 12 passed |
 | 端對端測試 | `powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1` | 14 passed（約 1.7 分鐘） |
 | 實機巡檢 | 手機接 USB、`adb reverse tcp:8000 tcp:8000`、`uv run python scripts/phone_tour.py` | 20 步驟、JS 錯誤 0，截圖在 `logs/phone_tour/` |
+| 守護邏輯 | `powershell -ExecutionPolicy Bypass -File scripts\test_guardian.ps1` | OK (6 tests) |
+| 守護實機 | 手機接 USB、`uv run python scripts/guardian_device_test.py 60` | 收到提醒且偵測到靈動島截圖（logs/guardian_test/banner_*.png） |
 | AI | `uv run python ai/train_cause_model.py`（約 2 分鐘） | 產生 `docs/ai-report.md`，model_version 有兩筆 is_active |
 | APK | `powershell -ExecutionPolicy Bypass -File scripts\build_apk.ps1` | `dist/traffic-safety-debug.apk`，有接手機則自動安裝 |
 | MCP | `uv run python scripts/verify_mcp.py` | 三個 [OK] |

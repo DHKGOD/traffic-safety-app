@@ -5,7 +5,7 @@ import { icon } from '../icons.js'
 import { L, createMap, drawRoute, hotspotIcon, meIcon, pinIcon, reportIcon } from '../map-utils.js'
 import { DEMO, MODE_LABEL, PERIOD_HINT, PERIOD_OPTS, WEATHER_OPTS, emit, on, setMode, setRoute, state } from '../store.js'
 import { $, $$, LEVEL, actionSheet, disclaimer, el, emptyState, esc, fmt, haptic, skeletonList, toast, toastError } from '../ui.js'
-import { guardianAvailable, guardianState, startGuardian, stopGuardian } from '../guardian.js'
+import { guardianAvailable, guardianState, overlayAllowed, startGuardian, stopGuardian } from '../guardian.js'
 import { openPlanner } from './planner.js'
 
 const WIDE = '(min-width: 900px) and (orientation: landscape), (min-width: 1100px)'
@@ -261,6 +261,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
       if (v === 'gps') await startGuardian()
       else await startGuardian({ simulate: state.route.points, simSpeed: state.route.mode === 'car' ? 14 : state.route.mode === 'bike' ? 6 : 4 })
       toast(v === 'gps' ? '背景守護已開啟，可以切到其他 App 了' : '展示模擬已開始，可以按主畫面鍵切到其他 App 觀看提醒', { icon: 'shield', color: 'var(--blue)', ms: 4500 })
+      if (!(await overlayAllowed())) setTimeout(() => toast('建議到「設定」開啟靈動島懸浮提醒，在其他 App 上也看得到', { icon: 'sparkles', color: '#000', ms: 5000 }), 1500)
     } catch (e) {
       toastError(e.message || '無法開啟守護模式')
     }

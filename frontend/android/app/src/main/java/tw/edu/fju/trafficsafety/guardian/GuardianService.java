@@ -56,6 +56,7 @@ public class GuardianService extends Service {
     static final String TAG = "Guardian";
     static final String CH_STATUS = "guardian_status";
     static final String CH_ALERT = "guardian_alert";
+    static final String CH_HISTORY = "guardian_history";
     static final int ID_STATUS = 7101;
     static final int ID_ALERT = 7102;
     static final double RELOAD_KM = 1.5;   // 離上次下載中心超過就重新下載附近路口
@@ -81,6 +82,8 @@ public class GuardianService extends Service {
     private long lastStatusAt;
     private String lastAlertText = "";
     private boolean highAccuracy;
+    private int lastAlertId;
+    private IslandOverlay island;
 
     // 模擬（展示用）：沿路線移動
     private List<double[]> simRoute;
@@ -95,6 +98,7 @@ public class GuardianService extends Service {
         super.onCreate();
         instance = this;
         createChannels(this);
+        island = new IslandOverlay(this);
         fused = LocationServices.getFusedLocationProviderClient(this);
         tts = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
@@ -133,6 +137,7 @@ public class GuardianService extends Service {
     @Override
     public void onDestroy() {
         stopSimulation();
+        if (island != null) island.removeNow();
         if (callback != null) fused.removeLocationUpdates(callback);
         if (tts != null) tts.shutdown();
         io.shutdownNow();
@@ -303,7 +308,10 @@ public class GuardianService extends Service {
         String text = h.name + "・約 " + meters + " 公尺・歷史事故 " + h.accidents + " 件";
         String tip = "car".equals(a.mode) ? "請減速，注意轉彎車與機車" : "bike".equals(a.mode) ? "請減速，注意左右來車與開車門" : "過馬路前左右看，別低頭看手機";
         lastAlertText = h.name + "（" + meters + " m）";
-        NotificationCompat.Builder b = new NotificationCompat.Builder(this, CH_ALERT)
+        // 有靈動島時由它負責畫面提醒，系統通知改為靜音紀錄（避免兩個提醒互相遮擋）；震動由 App 自己發出
+        boolean useIsland = IslandOverlay.allowed(this);
+        if (useIsland) vibrate();
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, useIsland ? CH_HISTORY : CH_ALERT)
                 .setSmallIcon(R.drawable.ic_stat_guardian)
                 .setContentTitle(title)
                 .setContentText(text)
@@ -314,14 +322,34 @@ public class GuardianService extends Service {
                 .setVibrate(new long[]{0, 350, 150, 350})
                 .setAutoCancel(true)
                 .setTimeoutAfter(20000)
+                // 指定獨立群組：避免被系統和常駐通知自動合併（合併後會降成低重要性、不會彈出橫幅）
+                .setGroup("guardian_alert_" + h.id)
+                .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_ALL)
                 .setContentIntent(openApp());
         try {
-            NotificationManagerCompat.from(this).notify(ID_ALERT, b.build());
+            NotificationManagerCompat nm = NotificationManagerCompat.from(this);
+            if (lastAlertId != 0) nm.cancel(lastAlertId);
+            lastAlertId = ID_ALERT + 1 + (h.id % 5000); // 每個路口用不同編號，才會被當成新的提醒彈出
+            nm.notify(lastAlertId, b.build());
         } catch (SecurityException e) {
             Log.w(TAG, "沒有通知權限", e);
         }
+        // 靈動島懸浮提醒（有「顯示在其他應用程式上層」權限時）
+        int color = "high".equals(h.level) ? 0xFFFF3B30 : "medium".equals(h.level) ? 0xFFFF9500 : 0xFFF5B800;
+        island.show("前方危險路口・" + level, h.name + "・" + meters + " 公尺・事故 " + h.accidents + " 件", color, 7000);
         speak("注意，前方約" + meters + "公尺，" + h.name.replace("/", "與") + "路口，事故多發，" + tip);
         publish();
+    }
+
+    private void vibrate() {
+        try {
+            android.os.Vibrator v = Build.VERSION.SDK_INT >= 31
+                    ? ((android.os.VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE)).getDefaultVibrator()
+                    : (android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (v != null && v.hasVibrator()) {
+                v.vibrate(android.os.VibrationEffect.createWaveform(new long[]{0, 350, 150, 350}, -1));
+            }
+        } catch (Exception ignored) { /* 平板常沒有震動馬達 */ }
     }
 
     private void speak(String s) {
@@ -353,6 +381,7 @@ public class GuardianService extends Service {
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setSilent(true)
+                .setGroup("guardian_status")
                 .setColor(0xFF0A84FF)
                 .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
                 .setContentIntent(openApp())
@@ -392,7 +421,10 @@ public class GuardianService extends Service {
         a.setDescription("接近危險路口時跳出提醒");
         a.enableVibration(true);
         a.setVibrationPattern(new long[]{0, 350, 150, 350});
+        NotificationChannel hist = new NotificationChannel(CH_HISTORY, "提醒紀錄（靈動島開啟時）", NotificationManager.IMPORTANCE_LOW);
+        hist.setDescription("已用靈動島提醒時，通知欄只留下靜音紀錄");
         nm.createNotificationChannel(s);
         nm.createNotificationChannel(a);
+        nm.createNotificationChannel(hist);
     }
 }
