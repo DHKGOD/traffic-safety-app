@@ -5,6 +5,7 @@ import { icon } from '../icons.js'
 import { L, createMap, drawRoute, hotspotIcon, meIcon, pinIcon, reportIcon } from '../map-utils.js'
 import { DEMO, MODE_LABEL, PERIOD_HINT, PERIOD_OPTS, WEATHER_OPTS, emit, on, setMode, setRoute, state } from '../store.js'
 import { $, $$, LEVEL, actionSheet, disclaimer, el, emptyState, esc, fmt, haptic, skeletonList, toast, toastError } from '../ui.js'
+import { guardianAvailable, guardianState, startGuardian, stopGuardian } from '../guardian.js'
 import { openPlanner } from './planner.js'
 
 const WIDE = '(min-width: 900px) and (orientation: landscape), (min-width: 1100px)'
@@ -16,12 +17,17 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     <section class="page map-page">
       <div id="map"></div>
       <div class="status-scrim"></div>
+      <button class="guardian-pill" data-act="guardian" hidden>
+        <span class="g-ic">${icon('shield')}</span>
+        <span class="g-text"><b>守護中</b><span class="g-sub"></span></span>
+      </button>
       <div class="map-fabs">
         <div class="fab-stack">
           <button class="fab" data-act="locate" aria-label="我的位置">${icon('location')}</button>
           <button class="fab" data-act="fit" aria-label="顯示整條路線">${icon('route')}</button>
         </div>
         <div class="fab-stack">
+          <button class="fab" data-act="guardian" aria-label="背景守護模式">${icon('shield')}</button>
           <button class="fab" data-act="walk" aria-label="模擬行走">${icon('walk')}</button>
           <button class="fab" data-act="report" aria-label="回報差點被撞" style="color:var(--purple)">${icon('plus')}</button>
         </div>
@@ -185,6 +191,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     const act = e.target.closest('[data-act]')?.dataset.act
     if (!act) return
     if (act === 'plan') return openPlanner()
+    if (act === 'guardian') return guardianMenu()
     if (act === 'demo') return setRoute(DEMO)
     if (act === 'weather') {
       const v = await actionSheet({ title: '天候模式', message: '依事故發生時的天候篩選危險路口', value: state.weather,
@@ -228,6 +235,45 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     const id = e.target.closest('[data-open]')?.dataset.open
     if (id) openReport(hotspots.find((x) => x.id === +id))
   })
+
+  /* ---------- 背景守護模式（切到 Google 地圖或滑手機時也會提醒） ---------- */
+  async function guardianMenu() {
+    if (!guardianAvailable()) {
+      toast('背景守護需要安裝 Android App；網頁版可用「模擬行走」體驗提醒', { icon: 'shield', color: 'var(--blue)', ms: 4000 })
+      return
+    }
+    if (guardianState.running) {
+      const v = await actionSheet({ title: '背景守護中', message: guardianState.simulating ? '正在沿路線展示模擬' : '接近危險路口時會跳出通知並語音提醒',
+        options: [{ value: 'stop', label: '停止守護' }] })
+      if (v === 'stop') { await stopGuardian(); toast('已停止背景守護', { icon: 'shield', color: 'var(--gray)' }) }
+      return
+    }
+    const v = await actionSheet({
+      title: '背景守護模式',
+      message: '開啟後可以切到 Google 地圖或其他 App，接近危險路口時會跳出通知、語音與震動提醒',
+      options: [
+        { value: 'gps', label: '開始守護（使用 GPS）', icon: 'shield' },
+        { value: 'sim', label: '展示：沿目前路線模擬', icon: 'route' },
+      ],
+    })
+    if (!v) return
+    try {
+      if (v === 'gps') await startGuardian()
+      else await startGuardian({ simulate: state.route.points, simSpeed: state.route.mode === 'car' ? 14 : state.route.mode === 'bike' ? 6 : 4 })
+      toast(v === 'gps' ? '背景守護已開啟，可以切到其他 App 了' : '展示模擬已開始，可以按主畫面鍵切到其他 App 觀看提醒', { icon: 'shield', color: 'var(--blue)', ms: 4500 })
+    } catch (e) {
+      toastError(e.message || '無法開啟守護模式')
+    }
+  }
+
+  function renderGuardian(g) {
+    const pill = $('.guardian-pill', page)
+    pill.hidden = !g.running
+    $('[data-act="guardian"].fab', page)?.classList.toggle('on', !!g.running)
+    if (g.running) {
+      $('.g-sub', page).textContent = g.nearest ? `最近：${g.nearest}・${fmt.dist(g.nearestM)}` : (g.simulating ? '展示模擬中' : '取得位置中…')
+    }
+  }
 
   /* ---------- 我的位置（Capacitor 原生定位；平板沒 GPS 時提示） ---------- */
   async function locate() {
@@ -328,6 +374,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     }
     if (type === 'online') setConn(payload)
     if (type === 'server-changed' && map) load()
+    if (type === 'guardian') renderGuardian(payload)
   })
 
   renderHeader()

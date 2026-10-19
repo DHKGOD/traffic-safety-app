@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -56,25 +57,54 @@ def api_pid() -> int | None:
 
 
 def ensure_database() -> None:
-    """local 模式：啟動資料庫；第一次使用時自動建帳號、建表、匯入資料。"""
+    """local 模式：啟動資料庫；並檢查每個初始化步驟是否完成，沒完成的自動補做（中途失敗的下次啟動會接著做）。"""
     if env("DB_MODE", "local") == "local":
         py("localdb.py", "start")
         py("db_bootstrap.py")
     py("migrate.py")
+    raw = sorted((ROOT / "data" / "raw" / "a2_115").glob("*.zip"))
     with psycopg.connect(database_url()) as conn:
-        n = conn.execute("SELECT count(*) FROM accident").fetchone()[0]
-    if n == 0:
-        print("資料庫還沒有事故資料，開始匯入（約 1–2 分鐘）…")
-        if not any((ROOT / "data" / "raw" / "a2_115").glob("*.zip")):
+        batches = conn.execute("SELECT count(*) FROM import_batch WHERE accident_rows > 0").fetchone()[0]
+        flagged = conn.execute("SELECT count(*) FROM accident WHERE coord_flag IS NOT NULL").fetchone()[0]
+        hotspots = conn.execute("SELECT count(*) FROM hotspot").fetchone()[0]
+        models = conn.execute("SELECT artifact_path FROM model_version WHERE is_active AND name = 'cause_scenario'").fetchall()
+    imported = batches > 0 and (not raw or batches >= len(raw))
+    if not imported:
+        print("資料庫還沒有完整的事故資料，開始匯入（約 1–2 分鐘）…")
+        if not raw:
             py("download_data.py")
         py("import_accidents.py")
+    if not imported or flagged == 0:
         py("clean_coords.py")
+    if not imported or flagged == 0 or hotspots == 0:
         py("build_hotspots.py")
+    if not models or not (ROOT / models[0][0]).exists():
+        print("沒有可用的 AI 模型，開始訓練（約 2–3 分鐘）…")
+        r = subprocess.run([sys.executable, str(ROOT / "ai" / "train_cause_model.py")], cwd=ROOT)
+        if r.returncode != 0:
+            print("⚠ AI 模型訓練失敗：伺服器仍會啟動，但 AI 預測暫時無法使用（之後可手動執行 ai/train_cause_model.py）")
+
+
+def ensure_frontend() -> None:
+    """後端也提供網頁版前端：frontend/dist 不存在時自動建置（需要 Node.js）。"""
+    if (ROOT / "frontend" / "dist" / "index.html").exists():
+        return
+    npm = shutil.which("npm")
+    if not npm:
+        print("⚠ 找不到 Node.js（npm），無法建置網頁版前端；API 仍可使用，App 不受影響。")
+        return
+    print("建置網頁版前端…")
+    front = ROOT / "frontend"
+    if not (front / "node_modules").exists():
+        subprocess.run([npm, "ci"], cwd=front, check=False)
+    if subprocess.run([npm, "run", "build"], cwd=front).returncode != 0:
+        print("⚠ 前端建置失敗；API 仍可使用。")
 
 
 def start() -> None:
     py("setup_env.py")
     ensure_database()
+    ensure_frontend()
     port = env("API_PORT", "8000")
     host = env("API_HOST", "0.0.0.0")
     if api_pid():

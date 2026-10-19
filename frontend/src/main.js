@@ -17,6 +17,7 @@ import { reportView } from './views/report.js'
 import { applyTheme, savedTheme, settingsView, testServer } from './views/settings.js'
 import { openSubmit } from './views/submit.js'
 import { startWalk } from './walk.js'
+import { initGuardian } from './guardian.js'
 
 applyTheme(savedTheme())
 // Android WebView 的毛玻璃不一定有效，App 內改用實色材質（見 views.css html.no-blur）
@@ -145,5 +146,6 @@ function onboarding() {
   $('.ob-skip', o).addEventListener('click', () => o.remove())
 }
 
+initGuardian().catch(() => { /* 網頁版或外掛未載入 */ })
 if (!getServer()) onboarding()
 else startPolling()

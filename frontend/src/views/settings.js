@@ -2,7 +2,8 @@
 import { api, deviceId, getServer, isNative, normalize, setServer } from '../api.js'
 import { icon } from '../icons.js'
 import { emit, startPolling } from '../store.js'
-import { $, DISCLAIMER, esc, fmt, makePage, segmented, toast, toastError } from '../ui.js'
+import { $, DISCLAIMER, actionSheet, esc, fmt, makePage, segmented, toast, toastError } from '../ui.js'
+import { GUARDIAN_MODES, guardianMode, setGuardianMode, testGuardianAlert } from '../guardian.js'
 
 export function applyTheme(t) {
   if (t === 'auto') delete document.documentElement.dataset.theme
@@ -14,7 +15,10 @@ export const savedTheme = () => { try { return localStorage.getItem('theme') || 
 
 /** 測試連線，回傳 health 結果 */
 export async function testServer(url) {
-  return api('/api/health', { server: normalize(url), timeout: 6000 })
+  const h = await api('/api/health', { server: normalize(url), timeout: 6000 })
+  // 伺服器有回應但資料庫異常時也算失敗（不要存進去）
+  if (h?.status !== 'ok' || !h?.database?.ok) throw new Error(`伺服器有回應，但資料庫異常：${h?.database?.error || '未知錯誤'}`)
+  return h
 }
 
 export function settingsView({ openAdmin }) {
@@ -34,6 +38,23 @@ export function settingsView({ openAdmin }) {
         <button class="cell tappable" data-test style="justify-content:center;color:var(--blue);font-weight:600">測試連線並儲存</button>
       </div>
       <div class="section-footer">本機模擬雲端：在電腦執行 start_server.bat，畫面會顯示要輸入的網址（手機需連同一個 Wi-Fi）。搬到雲端主機後，只要在這裡改成新網址即可，不用重新安裝 App。</div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">背景守護</div>
+      <div class="list">
+        <button class="cell tappable" data-gmode style="--sep-inset:58px">
+          <span class="cell-icon" style="background:var(--blue)">${icon('shield')}</span>
+          <span class="cell-main"><span class="cell-title" style="display:block">交通方式</span></span>
+          <span class="cell-value g-mode"></span><span class="chev">${icon('chevronRight')}</span>
+        </button>
+        <button class="cell tappable" data-gtest style="--sep-inset:58px">
+          <span class="cell-icon" style="background:var(--red)">${icon('warningFill')}</span>
+          <span class="cell-main"><span class="cell-title" style="display:block">測試提醒通知</span></span>
+          <span class="chev">${icon('chevronRight')}</span>
+        </button>
+      </div>
+      <div class="section-footer">在地圖右上角按 ${icon('shield')} 開啟。開啟後切到 Google 地圖或滑手機，接近危險路口時會跳出通知並語音提醒；「自動判斷」會依速度調整提醒距離（步行 60 公尺、騎車 120 公尺、開車 220 公尺），搭公車或捷運時可選「不提醒」。</div>
     </div>
 
     <div class="section">
@@ -106,13 +127,23 @@ export function settingsView({ openAdmin }) {
       const acc = s.tables.find((t) => t.table === 'accident')?.rows
       $('.db-count', p.el).textContent = `${fmt.n(acc)} 件事故`
       const models = await api('/api/ai/models')
-      const active = models.find((m) => m.is_active)
-      $('.ai-ver', p.el).textContent = active ? `${active.name} v${active.version}` : '尚未訓練'
+      // App 的 AI 情境預測使用 cause_scenario（cause_full 只是對照模型）
+      const active = models.find((m) => m.is_active && m.name === 'cause_scenario')
+      $('.ai-ver', p.el).textContent = active ? `情境預測 v${active.version}` : '尚未訓練'
     } catch { /* 離線 */ }
   }
+  const renderMode = () => { $('.g-mode', p.el).textContent = GUARDIAN_MODES.find((m) => m.value === guardianMode()).label }
+  async function pickMode() {
+    const v = await actionSheet({ title: '背景守護：交通方式', message: '決定多遠開始提醒；搭大眾運輸時不提醒', value: guardianMode(), options: GUARDIAN_MODES })
+    if (v) { setGuardianMode(v); renderMode() }
+  }
+  renderMode()
+
   p.el.addEventListener('click', (e) => {
     if (e.target.closest('[data-test]')) test(true)
     if (e.target.closest('[data-admin]')) openAdmin()
+    if (e.target.closest('[data-gmode]')) pickMode()
+    if (e.target.closest('[data-gtest]')) testGuardianAlert().then(() => toast('已送出測試通知，請看螢幕上方', { icon: 'shield', color: 'var(--blue)' })).catch((err) => toastError(err.message || '無法送出通知'))
   })
   $('.srv', p.el).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.target.blur(); test(true) } })
   let shown = false

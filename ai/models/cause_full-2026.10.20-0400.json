@@ -1,0 +1,119 @@
+{
+ "task": "cause_full",
+ "algorithm": "hist_gradient_boosting",
+ "classes": [
+  "其他不當駕車行為",
+  "其他未依規定讓車",
+  "尚未發現肇事因素",
+  "左轉彎未依規定",
+  "恍神、緊張、心不在焉分心駕駛",
+  "有號誌路口，轉彎車未讓直行車先行",
+  "未保持行車安全距離",
+  "未保持行車安全間隔",
+  "無號誌路口，支線道未讓幹線道先行",
+  "起步時未注意安全"
+ ],
+ "features": [
+  "hour_band",
+  "weekday_type",
+  "weather",
+  "light",
+  "road_class",
+  "speed_band",
+  "road_type_major",
+  "road_type_minor",
+  "position_major",
+  "surface_state",
+  "signal_type",
+  "divider_major",
+  "lane_fast_slow",
+  "v1",
+  "age_band",
+  "sex1",
+  "collision_major",
+  "collision_minor",
+  "v2",
+  "action1",
+  "parties"
+ ],
+ "validation": {
+  "logistic_regression": {
+   "accuracy": 0.5261,
+   "macro_f1": 0.5184,
+   "top3_accuracy": 0.8585,
+   "n": 39559
+  },
+  "hist_gradient_boosting": {
+   "accuracy": 0.5377,
+   "macro_f1": 0.5322,
+   "top3_accuracy": 0.8724,
+   "n": 39559
+  }
+ },
+ "validation_baseline": {
+  "accuracy": 0.1796,
+  "macro_f1": 0.0305,
+  "top3_accuracy": 0.4836,
+  "n": 39559,
+  "always": "未保持行車安全距離"
+ },
+ "test": {
+  "accuracy": 0.5367,
+  "macro_f1": 0.5264,
+  "top3_accuracy": 0.8653,
+  "n": 17775
+ },
+ "test_baseline": {
+  "accuracy": 0.1959,
+  "macro_f1": 0.0328,
+  "top3_accuracy": 0.477,
+  "n": 17775,
+  "always": "未保持行車安全距離"
+ },
+ "per_class_test": {
+  "其他不當駕車行為": {
+   "f1": 0.368,
+   "support": 3233
+  },
+  "其他未依規定讓車": {
+   "f1": 0.282,
+   "support": 1069
+  },
+  "尚未發現肇事因素": {
+   "f1": 0.331,
+   "support": 1866
+  },
+  "左轉彎未依規定": {
+   "f1": 0.508,
+   "support": 1270
+  },
+  "恍神、緊張、心不在焉分心駕駛": {
+   "f1": 0.269,
+   "support": 1763
+  },
+  "有號誌路口，轉彎車未讓直行車先行": {
+   "f1": 0.68,
+   "support": 1579
+  },
+  "未保持行車安全距離": {
+   "f1": 0.702,
+   "support": 3482
+  },
+  "未保持行車安全間隔": {
+   "f1": 0.491,
+   "support": 1288
+  },
+  "無號誌路口，支線道未讓幹線道先行": {
+   "f1": 0.701,
+   "support": 1189
+  },
+  "起步時未注意安全": {
+   "f1": 0.932,
+   "support": 1036
+  }
+ },
+ "train_range": "115/01–115/06",
+ "val_range": "115/07–115/08",
+ "test_range": "115/09–115/10",
+ "seconds": 55
+}

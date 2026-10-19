@@ -266,11 +266,38 @@ test('設定：測試連線、錯誤位址、後台筆數與資料表關係', as
   await root.locator('[data-test]').click()
   await expect(root.locator('.server-status')).toContainText(/無法連線|逾時/)
   expect(await page.evaluate(() => localStorage.getItem('serverUrl'))).toBe(new URL(page.url()).origin)
+  // 伺服器回 200 但資料庫異常：也要判定失敗、不可存（Codex 審查 #4）
+  await page.route('http://bad-db.test/**', (r) => r.fulfill({ status: 200, contentType: 'application/json',
+    headers: { 'access-control-allow-origin': '*' },
+    body: JSON.stringify({ status: 'error', database: { ok: false, error: 'connection refused' } }) }))
+  await root.locator('.srv').fill('http://bad-db.test')
+  await root.locator('[data-test]').click()
+  await expect(root.locator('.server-status')).toContainText('資料庫異常')
+  expect(await page.evaluate(() => localStorage.getItem('serverUrl'))).toBe(new URL(page.url()).origin)
+  await root.locator('.srv').fill(new URL(page.url()).origin)
   // 後台
   await root.locator('[data-admin]').click()
   await expect(root.locator('.stat-value').first()).toHaveText(/\d{3},\d{3}/)
   await expect(root.locator('.er-row').first()).toBeVisible()
   await expect(root.locator('.cell', { hasText: '當事人' }).locator('.cell-value')).toHaveText(/\d{3},\d{3}/)
+})
+
+test('背景守護：網頁版顯示說明、設定頁可選交通方式', async ({ page }) => {
+  await openApp(page)
+  await page.locator('.fab[data-act="guardian"]').click()
+  await expect(page.locator('.toast', { hasText: '需要安裝 Android App' }).last()).toBeVisible()
+  await expect(page.locator('.guardian-pill')).toBeHidden()
+  await page.locator('[data-tab="settings"]').click()
+  const root = page.locator('[data-root="settings"]')
+  await expect(root.locator('.g-mode')).toHaveText('自動判斷（依速度）')
+  await root.locator('[data-gmode]').click()
+  await page.locator('.as-btn', { hasText: '搭公車／捷運' }).click()
+  await expect(root.locator('.g-mode')).toContainText('搭公車')
+  expect(await page.evaluate(() => localStorage.getItem('guardianMode'))).toBe('transit')
+  await root.locator('[data-gtest]').click()
+  await expect(page.locator('.toast', { hasText: '需要安裝 Android App' }).last()).toBeVisible()
+  // 設定頁顯示的是 App 實際使用的情境預測模型（Codex 審查 #5）
+  await expect(root.locator('.ai-ver')).toContainText('情境預測')
 })
 
 test('深色模式切換', async ({ page }) => {
