@@ -1,6 +1,6 @@
 # 資料庫筆數報告
 
-產生時間：2026-10-20 02:01（`uv run python scripts/db_report.py` 自動產生）
+產生時間：2026-10-20 04:44（`uv run python scripts/db_report.py` 自動產生）
 
 - PostgreSQL 18.6；PostGIS 3.6.2
 
@@ -10,13 +10,14 @@
 |---|---|---:|
 | `accident` | 事故（一件事故一列） | 284,116 |
 | `party` | 當事人（原始 CSV 每一列） | 640,620 |
-| `hotspot` | 危險路口（格網彙整） | 16,261 |
+| `hotspot` | 危險路口（格網彙整） | 18,573 |
 | `cause_code` | 肇因代碼 | 120 |
 | `collision_type` | 事故類型及型態代碼 | 30 |
 | `import_batch` | 匯入批次（原始檔） | 10 |
-| `user_report` | 使用者回報 | 0 |
-| `model_version` | AI 模型版本 | 0 |
-| `prediction` | AI 預測紀錄 | 0 |
+| `user_report` | 使用者回報 | 1 |
+| `model_version` | AI 模型版本 | 4 |
+| `prediction` | AI 預測紀錄 | 47 |
+| `shared_route` | 家人分享路線 | 0 |
 
 ## 重點查詢
 
@@ -25,8 +26,8 @@
 | 事故件數 | `SELECT count(*) FROM accident` | 284,116 |
 | 當事人列數 | `SELECT count(*) FROM party` | 640,620 |
 | 當事者順位=1 的列數（應等於事故件數） | `SELECT count(*) FROM party WHERE party_order = 1` | 284,116 |
-| 座標有效的事故 | `SELECT count(*) FROM accident WHERE coord_valid` | 283,785 |
-| 已對應到危險路口的事故 | `SELECT count(*) FROM accident WHERE hotspot_id IS NOT NULL` | 77,555 |
+| 座標有效的事故 | `SELECT count(*) FROM accident WHERE coord_valid` | 276,790 |
+| 已對應到危險路口的事故 | `SELECT count(*) FROM accident WHERE hotspot_id IS NOT NULL` | 94,810 |
 | 115 年 1–8 月事故件數 | `SELECT count(*) FROM accident WHERE year = 2026 AND month <= 8` | 255,833 |
 | 115 年 1–8 月當事人列數 | `SELECT count(*) FROM party p JOIN accident a ON a.id = p.accident_id WHERE a.year = 2026 AND a.month <= 8` | 577,324 |
 

@@ -49,6 +49,24 @@ def test_haversine_known_distance():
     assert 85_000 < haversine(25.0478, 121.5170, 24.5701, 120.8228) < 93_000
 
 
+def test_merge_cells_joins_split_intersection_without_chaining():
+    from scripts.build_hotspots import merge_cells
+
+    def cell(n, lat, lon):
+        return {"n": n, "lat": lat, "lon": lon}
+
+    m = 1 / 111_000
+    cells = {
+        (0, 0): cell(17, 25.0, 121.0),                  # 主要格子
+        (1, 0): cell(4, 25.0, 121.0 + 25 * m),          # 25 m 外的相鄰格子 → 合併
+        (2, 0): cell(3, 25.0, 121.0 + 60 * m),          # 離主格 60 m（離第二格 35 m）→ 不連鎖合併
+        (0, 5): cell(5, 25.0 + 200 * m, 121.0),         # 不相鄰 → 獨立
+    }
+    groups = {tuple(sorted(g)) for g in merge_cells(cells, 35)}
+    assert ((0, 0), (1, 0)) in groups
+    assert ((2, 0),) in groups and ((0, 5),) in groups
+
+
 def test_clean_name():
     assert clean_name("新北市新莊區中正路 / 新北市新莊區民安路") == "中正路 / 民安路"
     assert clean_name("新北市新莊區中正路 / 新北市新莊區中正路") == "中正路"
