@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import math
 import re
 import sys
 import time
@@ -67,15 +68,16 @@ def nz(s: str) -> str | None:
 def to_int(s: str) -> int | None:
     try:
         return int(float(s))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):  # OverflowError：「inf」（Codex 測試發現）
         return None
 
 
 def to_float(s: str) -> float | None:
     try:
-        return float(s)
+        v = float(s)
     except (TypeError, ValueError):
         return None
+    return v if math.isfinite(v) else None  # inf／nan 視為空值，避免破壞座標計算
 
 
 def parse_location(text: str) -> tuple[str | None, str | None]:

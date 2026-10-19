@@ -17,7 +17,7 @@
 | ✅ | 資料表設計＋ ER 圖＋ migration | Claude |
 | ✅ | 匯入腳本、危險路口彙整、筆數報告 | Claude |
 | ✅ | 一鍵啟動／停止、.env、雲端部署文件 | Claude |
-| ⬜ | 匯入腳本的單元測試（用小樣本 CSV 測切分事故、座標檢查、代碼對應） | **Codex**（適合委派） |
+| ✅ | 匯入腳本的單元測試（tests/test_import.py） | Codex（Claude 審查） |
 | ⬜ | 危險路口改進：跨格線合併（DBSCAN 或鄰格合併），比較前後數量 | Codex |
 
 ## 階段 2：最小可用 App

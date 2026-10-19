@@ -24,7 +24,7 @@
 - ✅ 背景守護模式（前景服務＋提醒邏輯＋靈動島懸浮提醒＋語音震動；實機驗證：App 在背景時桌面上跳出提醒）
 - ✅ 家人模式（分享代碼存資料庫 shared_route、常用路線、長輩模式）
 - ✅ App 圖示與啟動畫面、平板橫式版面（Playwright 1280×800 檢查）
-- 🔄 Codex 正在撰寫匯入腳本單元測試（只新增 tests/test_import.py；完成後由 Claude 審查並 commit）
+- ✅ Codex 撰寫匯入腳本單元測試 tests/test_import.py（Claude 審查後 commit）；Codex 發現 to_int("inf") 會中斷匯入 → 已修正，to_float 也排除 inf/nan
 - ⬜ 氣象署雨天模式（需授權碼）
 
 ## 最後完成的事情
@@ -73,7 +73,7 @@
 |---|---|---|
 | 啟動 | 雙擊 `start_server.bat` | 印出本機與區網網址 |
 | 筆數 | `uv run python scripts/db_report.py` | accident 284,116；party 640,620 |
-| 後端測試 | `uv run pytest` | 13 passed（不含 Codex 新增的匯入測試） |
+| 後端測試 | `uv run pytest` | 43 passed |
 | 端對端測試 | `powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1` | 16 passed（約 2 分鐘） |
 | 實機巡檢 | 手機接 USB、`adb reverse tcp:8000 tcp:8000`、`uv run python scripts/phone_tour.py` | 20 步驟、JS 錯誤 0，截圖在 `logs/phone_tour/` |
 | 守護邏輯 | `powershell -ExecutionPolicy Bypass -File scripts\test_guardian.ps1` | OK (7 tests) |
