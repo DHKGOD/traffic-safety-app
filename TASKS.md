@@ -32,8 +32,10 @@
 ## 之後
 | 狀態 | 任務 | 負責 |
 |---|---|---|
-| 🔄 | 自訂路線：地名搜尋（Nominatim）＋路線（OSRM），後端代查；起點可用目前位置 | Claude |
-| ⬜ | AI 肇因預測：時間切分訓練（1–6 月訓練／7–8 月驗證／9–10 月測試）、和「永遠猜最常見」比較、寫入 model_version、API 預測並寫 prediction | Claude |
+| ✅ | 自訂路線：地名搜尋（Nominatim）＋路線（OSRM），後端代查；起點可用目前位置 | Claude |
+| ✅ | AI 肇因預測：時間切分訓練（1–6 月訓練／7–8 月驗證／9–10 月測試）、和「永遠猜最常見」比較、寫入 model_version、API 預測並寫 prediction（docs/ai-report.md） | Claude |
+| ✅ | 座標品質檢查（共用預設座標、座標與地址不符） | Claude |
+| ✅ | UI 第二版（Apple 地圖版面）＋ E2E 測試 14 項＋實機巡檢腳本 | Claude |
 | ⬜ | AI 天候／時段風險：用氣象署測站降雨時數校正 | Claude（需 CWA 授權碼） |
 | ⬜ | 雨天模式自動切換（氣象署即時觀測＋預報） | Claude（需 CWA 授權碼） |
 | ⬜ | **背景守護模式**（Android 原生外掛：前景服務＋Geofencing＋活動辨識＋heads-up 通知＋語音） | Claude |

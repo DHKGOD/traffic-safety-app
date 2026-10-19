@@ -95,6 +95,33 @@ test('路口體檢報告：圖表、建議、匯出、返回', async ({ page }) 
   await expect(page.locator('.report-hero')).toHaveCount(0)
 })
 
+test('AI 情境預測：切換情境會重新預測並記錄模型版本', async ({ page, request }) => {
+  await openApp(page)
+  const first = page.locator('.hs-list .hs-cell').first()
+  await first.click()
+  await first.click()
+  const card = page.locator('.ai-card')
+  await expect(card).toBeVisible()
+  await expect(card.locator('.hbar-label')).toHaveCount(5)
+  const id1 = Number((await card.locator('.legend').textContent()).match(/#(\d+)/)[1])
+  const top1 = await card.locator('.hbar-label span').first().textContent()
+  // 改成「雨天」「65 歲以上」
+  await card.locator('[data-ai="weather"]').click()
+  await page.locator('.as-btn', { hasText: '雨天' }).click()
+  await expect(page.locator('.ai-card [data-ai="weather"]')).toContainText('雨天')
+  await page.locator('.ai-card [data-ai="age"]').click()
+  await page.locator('.as-btn', { hasText: '65 歲以上' }).click()
+  await expect(page.locator('.ai-card [data-ai="age"]')).toContainText('65 歲以上')
+  const legend = await page.locator('.ai-card .legend').textContent()
+  const id2 = Number(legend.match(/#(\d+)/)[1])
+  expect(id2).toBeGreaterThan(id1)
+  // 從 API 回查這筆預測用的是哪一版模型、輸入了什麼情境
+  const rec = await (await request.get(`/api/ai/predictions/${id2}`)).json()
+  expect(rec.model_name).toBe('cause_scenario')
+  expect(rec.input.scenario).toMatchObject({ weather: 'rain', age: 'senior' })
+  expect(top1).toBeTruthy()
+})
+
 test('規劃路線：目前位置（台北車站）→ 搜尋「苗栗車站」→ 汽機車', async ({ page }) => {
   test.setTimeout(120_000)
   await openApp(page)

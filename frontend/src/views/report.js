@@ -3,7 +3,7 @@ import { api } from '../api.js'
 import { exportReport } from '../export.js'
 import { icon } from '../icons.js'
 import { L, createMap, hotspotIcon } from '../map-utils.js'
-import { $, LEVEL, disclaimer, esc, fmt, makePage, toast, toastError } from '../ui.js'
+import { $, LEVEL, actionSheet, disclaimer, esc, fmt, makePage, toast, toastError } from '../ui.js'
 
 const PALETTE = ['var(--blue)', 'var(--orange)', 'var(--purple)', 'var(--teal)', 'var(--pink)', 'var(--green)', 'var(--gray)']
 const WEEK = ['一', '二', '三', '四', '五', '六', '日']
@@ -146,21 +146,51 @@ export function reportView(h, { back = '地圖' } = {}) {
       ${disclaimer(d.disclaimer)}`
   }
 
-  /** AI 肇因預測（模型尚未訓練時不顯示） */
-  async function loadAi() {
-    try {
-      const ai = await api(`/api/ai/hotspots/${h.id}/causes`)
-      const slot = $('.ai-slot', p.el)
-      if (!slot || !ai?.predictions?.length) return
-      slot.innerHTML = `
-        <div class="chart-card">
-          <h4><span style="color:var(--purple)">${icon('sparkles')}</span>AI 肇因預測</h4>
-          <div class="hint">依本路口的道路與事故條件，預測事故最可能的主要肇因</div>
-          ${hbars(ai.predictions.map((x) => ({ name: x.cause, n: Math.round(x.probability * 100) })), (k) => (k === 0 ? 'var(--purple)' : 'color-mix(in srgb, var(--purple) 45%, transparent)'), 100)}
-          <div class="legend" style="margin-top:12px"><span>${icon('info')}模型 ${esc(ai.model.name)} v${esc(ai.model.version)}・測試準確率 ${fmt.pct(ai.model.metrics.accuracy)}（基準 ${fmt.pct(ai.model.baseline.accuracy)}）・預測編號 #${ai.prediction_id}</span></div>
-        </div>`
-    } catch { /* 尚未有模型 */ }
+  /* ---------- AI 肇因情境預測（模型尚未訓練時不顯示） ---------- */
+  const AI_OPTS = {
+    weather: { title: '天候', options: [{ value: 'all', label: '依路口常見天候' }, { value: 'clear', label: '晴天', icon: 'sun' }, { value: 'rain', label: '雨天', icon: 'rain' }] },
+    period: { title: '時段', options: [{ value: 'all', label: '依路口常見時段' }, { value: 'morning', label: '早上 6–9 點' }, { value: 'day', label: '白天 10–15 點' }, { value: 'evening', label: '傍晚 16–19 點' }, { value: 'night', label: '夜間 20–5 點' }] },
+    vehicle: { title: '交通工具', options: [{ value: 'scooter', label: '騎機車' }, { value: 'car', label: '開汽車', icon: 'car' }, { value: 'bike', label: '騎自行車', icon: 'bike' }] },
+    age: { title: '年齡', options: [{ value: 'young', label: '18–24 歲' }, { value: 'adult', label: '25–44 歲' }, { value: 'middle', label: '45–64 歲' }, { value: 'senior', label: '65 歲以上（長輩）' }] },
   }
+  const scenario = { weather: 'all', period: 'all', vehicle: 'scooter', age: 'adult' }
+  const short = (k) => {
+    const o = AI_OPTS[k].options.find((x) => x.value === scenario[k])
+    return k === 'weather' && scenario[k] === 'all' ? '常見天候' : k === 'period' && scenario[k] === 'all' ? '常見時段' : o.label.replace(/（.*）/, '')
+  }
+
+  async function loadAi() {
+    const slot = $('.ai-slot', p.el)
+    if (!slot) return
+    try {
+      const q = new URLSearchParams(scenario)
+      const ai = await api(`/api/ai/hotspots/${h.id}/causes?${q}`)
+      if (!ai?.predictions?.length) return
+      const m = ai.model
+      slot.innerHTML = `
+        <div class="chart-card ai-card">
+          <h4><span style="color:var(--purple)">${icon('sparkles')}</span>AI 情境預測</h4>
+          <div class="hint">如果你在這個路口……最可能因為什麼發生事故？</div>
+          <div class="chips" style="margin:12px -16px 0;padding:0 16px">
+            ${Object.keys(AI_OPTS).map((k) => `<button class="chip${(k === 'weather' || k === 'period') && scenario[k] === 'all' ? '' : ' on'}" data-ai="${k}" style="${(k === 'weather' || k === 'period') && scenario[k] === 'all' ? '' : 'background:var(--purple)'}">${esc(short(k))}<span class="caret">${icon('chevronDown')}</span></button>`).join('')}
+          </div>
+          ${hbars(ai.predictions.map((x) => ({ name: x.cause, n: Math.round(x.probability * 100) })), (k) => (k === 0 ? 'var(--purple)' : 'color-mix(in srgb, var(--purple) 45%, transparent)'), 100).replace(/<span class="num">(\d+)<span class="c-3"[^>]*>[^<]*<\/span><\/span>/g, '<span class="num">$1%</span>')}
+          ${ai.predictions[0].tip ? `<div class="advice-item" style="padding-bottom:2px"><span style="color:var(--purple)">${icon('lightbulb')}</span><span><b>最該注意：</b>${esc(ai.predictions[0].tip)}</span></div>` : ''}
+          <div class="legend" style="margin-top:10px;line-height:1.5"><span>${icon('info')}模型：${esc({ hist_gradient_boosting: '梯度提升決策樹', logistic_regression: '邏輯迴歸' }[m.algorithm] || m.algorithm)}（v${esc(m.version)}），以 ${esc(m.test_range)} 測試：前 3 名猜中率 ${fmt.pct(m.metrics.top3_accuracy)}（基準 ${fmt.pct(m.baseline.top3_accuracy)}）、macro-F1 ${m.metrics.macro_f1.toFixed(2)}（基準 ${m.baseline.macro_f1.toFixed(2)}）。預測編號 #${ai.prediction_id}</span></div>
+        </div>`
+    } catch { /* 尚未有模型：不顯示 */ }
+  }
+
+  p.el.addEventListener('click', async (e) => {
+    const k = e.target.closest('[data-ai]')?.dataset.ai
+    if (!k) return
+    const v = await actionSheet({ title: `AI 情境：${AI_OPTS[k].title}`, value: scenario[k], options: AI_OPTS[k].options })
+    if (v && v !== scenario[k]) {
+      scenario[k] = v
+      $('.ai-card', p.el)?.classList.add('loading')
+      loadAi()
+    }
+  })
 
   $('[data-export]', p.el).addEventListener('click', async () => {
     if (!data) return

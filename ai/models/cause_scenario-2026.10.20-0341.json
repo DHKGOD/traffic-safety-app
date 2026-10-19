@@ -1,0 +1,114 @@
+{
+ "task": "cause_scenario",
+ "algorithm": "hist_gradient_boosting",
+ "classes": [
+  "其他未依規定讓車",
+  "右轉彎未依規定",
+  "左轉彎未依規定",
+  "恍神、緊張、心不在焉分心駕駛",
+  "有號誌路口，轉彎車未讓直行車先行",
+  "未保持行車安全距離",
+  "未保持行車安全間隔",
+  "無號誌路口，支線道未讓幹線道先行",
+  "無號誌路口，轉彎車未讓直行車先行",
+  "起步時未注意安全"
+ ],
+ "features": [
+  "hour_band",
+  "weekday_type",
+  "weather",
+  "light",
+  "road_class",
+  "speed_band",
+  "road_type_major",
+  "road_type_minor",
+  "position_major",
+  "surface_state",
+  "signal_type",
+  "divider_major",
+  "lane_fast_slow",
+  "v1",
+  "age_band",
+  "sex1"
+ ],
+ "validation": {
+  "logistic_regression": {
+   "accuracy": 0.3673,
+   "macro_f1": 0.318,
+   "top3_accuracy": 0.6894,
+   "n": 32381
+  },
+  "hist_gradient_boosting": {
+   "accuracy": 0.3694,
+   "macro_f1": 0.3265,
+   "top3_accuracy": 0.6951,
+   "n": 32381
+  }
+ },
+ "validation_baseline": {
+  "accuracy": 0.2194,
+  "macro_f1": 0.036,
+  "top3_accuracy": 0.4756,
+  "n": 32381,
+  "always": "未保持行車安全距離"
+ },
+ "test": {
+  "accuracy": 0.3613,
+  "macro_f1": 0.3143,
+  "top3_accuracy": 0.6834,
+  "n": 14370
+ },
+ "test_baseline": {
+  "accuracy": 0.2423,
+  "macro_f1": 0.039,
+  "top3_accuracy": 0.4749,
+  "n": 14370,
+  "always": "未保持行車安全距離"
+ },
+ "per_class_test": {
+  "其他未依規定讓車": {
+   "f1": 0.11,
+   "support": 1069
+  },
+  "右轉彎未依規定": {
+   "f1": 0.19,
+   "support": 773
+  },
+  "左轉彎未依規定": {
+   "f1": 0.171,
+   "support": 1270
+  },
+  "恍神、緊張、心不在焉分心駕駛": {
+   "f1": 0.272,
+   "support": 1763
+  },
+  "有號誌路口，轉彎車未讓直行車先行": {
+   "f1": 0.473,
+   "support": 1579
+  },
+  "未保持行車安全距離": {
+   "f1": 0.449,
+   "support": 3482
+  },
+  "未保持行車安全間隔": {
+   "f1": 0.148,
+   "support": 1288
+  },
+  "無號誌路口，支線道未讓幹線道先行": {
+   "f1": 0.592,
+   "support": 1189
+  },
+  "無號誌路口，轉彎車未讓直行車先行": {
+   "f1": 0.421,
+   "support": 921
+  },
+  "起步時未注意安全": {
+   "f1": 0.316,
+   "support": 1036
+  }
+ },
+ "train_range": "115/01–115/06",
+ "val_range": "115/07–115/08",
+ "test_range": "115/09–115/10",
+ "seconds": 37
+}

@@ -203,3 +203,5 @@ html.no-blur[data-theme="dark"] {
 .server-status > * { white-space: nowrap; }
 .cell-value { flex-shrink: 0; }
 .cell-main { flex: 1 1 auto; }
+
+.ai-card.loading { opacity: 0.5; transition: opacity 0.2s; }
