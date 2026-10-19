@@ -15,3 +15,4 @@ args = ["postgres-mcp", "--access-mode=restricted"]
 
 [mcp_servers.postgres.env]
 DATABASE_URI = "postgresql://mcp_readonly@127.0.0.1:5432/traffic"
+UV_SYSTEM_CERTS = "1"

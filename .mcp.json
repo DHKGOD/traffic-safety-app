@@ -1,4 +1,4 @@
-{
+﻿{
   "mcpServers": {
     "context7": {
       "command": "cmd",
@@ -12,7 +12,8 @@
       "command": "uvx",
       "args": ["postgres-mcp", "--access-mode=restricted"],
       "env": {
-        "DATABASE_URI": "postgresql://mcp_readonly@127.0.0.1:5432/traffic"
+        "DATABASE_URI": "postgresql://mcp_readonly@127.0.0.1:5432/traffic",
+        "UV_SYSTEM_CERTS": "1"
       }
     }
   }
