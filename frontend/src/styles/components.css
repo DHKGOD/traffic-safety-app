@@ -375,3 +375,7 @@ html.elder .tab { font-size: 12px; }
 html.elder .tab .icon { font-size: 28px; }
 html.elder .advice-item { font-size: 18px; }
 .code-in::placeholder { letter-spacing: normal; font-weight: 400; }
+
+/* 捲軸隱藏（iOS 風格：捲動時不顯示粗捲軸） */
+.scroll, .sheet-body, .modal-body { scrollbar-width: none; }
+.scroll::-webkit-scrollbar, .sheet-body::-webkit-scrollbar, .modal-body::-webkit-scrollbar { display: none; }
