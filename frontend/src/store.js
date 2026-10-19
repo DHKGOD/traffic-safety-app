@@ -1,9 +1,22 @@
-// 全域狀態：天候／時段模式、即時回報輪詢
+// 全域狀態：天候／時段模式、目前路線、即時回報輪詢
 import { api } from './api.js'
+import DEMO_ROUTE from './data/demo-route.json'
 
 const listeners = new Set()
 
+export const MODE_LABEL = { foot: '步行', bike: '自行車', car: '汽機車' }
+export const DEMO = { ...DEMO_ROUTE, mode: 'foot', demo: true }
+
+function loadRoute() {
+  try {
+    const r = JSON.parse(localStorage.getItem('route') || 'null')
+    if (r?.points?.length >= 2 && r.start && r.end) return r
+  } catch { /* 格式不對就用 Demo */ }
+  return DEMO
+}
+
 export const state = {
+  route: loadRoute(),   // { name, start:{name,lat,lon}, end, points:[[lat,lon]], distance_m, duration_s, mode, demo }
   weather: 'all',
   period: 'all',
   reports: [],          // 最新的使用者回報（由新到舊）
@@ -18,6 +31,15 @@ export function on(fn) {
 }
 export function emit(type, payload) {
   listeners.forEach((fn) => fn(type, payload))
+}
+
+export function setRoute(route) {
+  state.route = route
+  try {
+    if (route.demo) localStorage.removeItem('route')
+    else localStorage.setItem('route', JSON.stringify(route))
+  } catch { /* 儲存失敗不影響使用 */ }
+  emit('route', route)
 }
 
 export function setMode(patch) {

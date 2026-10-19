@@ -3,42 +3,19 @@
 /* --- 地圖頁 --- */
 .map-page { background: var(--bg); }
 #map { position: absolute; inset: 0; z-index: 0; background: var(--card-2); }
-.map-top {
-  position: absolute; z-index: 25; left: 12px; right: 12px; top: calc(var(--safe-top) + 10px);
-  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
-}
-.map-top > * { pointer-events: auto; }
-.route-card {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 12px; border-radius: 16px;
-  background: var(--glass-strong); backdrop-filter: saturate(180%) blur(24px); -webkit-backdrop-filter: saturate(180%) blur(24px);
-  box-shadow: var(--shadow-1); border: 0.5px solid var(--glass-border);
-}
-.route-glyph { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: none; }
-.route-glyph i { width: 10px; height: 10px; border-radius: 50%; display: block; }
-.route-glyph b { width: 2px; height: 12px; background: var(--label-3); border-radius: 1px; display: block; }
-.route-texts { flex: 1; min-width: 0; }
-.route-texts .from, .route-texts .to { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.route-texts .to { margin-top: 6px; }
-.route-meta { text-align: right; flex: none; }
-.route-meta .num { font-size: 20px; font-weight: 700; }
-.mode-bar {
-  padding: 8px; border-radius: 16px;
-  background: var(--glass-strong); backdrop-filter: saturate(180%) blur(24px); -webkit-backdrop-filter: saturate(180%) blur(24px);
-  box-shadow: var(--shadow-1); border: 0.5px solid var(--glass-border);
-  display: flex; flex-direction: column; gap: 7px;
-}
 .map-fabs {
   position: absolute; right: 12px; z-index: 26;
-  top: calc(var(--safe-top) + 196px);
+  top: calc(var(--safe-top) + 12px);
   display: flex; flex-direction: column; gap: 10px;
 }
-.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 2px 10px; }
-.sheet-head .t-title3 { display: flex; align-items: center; gap: 8px; }
+.fab-stack { border-radius: 13px; }
+.fab { width: 44px; height: 44px; font-size: 20px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 2px 10px; }
+.sheet-head .t-title3 { display: flex; align-items: center; gap: 8px; font-size: 20px; }
 .summary-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-.summary-row .mini { background: var(--card); border-radius: 12px; padding: 10px 12px; }
-.summary-row .mini .num { font-size: 22px; font-weight: 700; display: block; }
-.summary-row .mini span:last-child { font-size: 12px; color: var(--label-2); }
+.summary-row .mini { background: var(--card); border-radius: 12px; padding: 9px 12px 8px; }
+.summary-row .mini .num { font-size: 22px; font-weight: 700; display: block; line-height: 1.15; letter-spacing: -0.01em; }
+.summary-row .mini span:last-child { font-size: 12px; color: var(--label-2); font-weight: 500; }
 .hs-cell { gap: 12px; }
 .rank {
   width: 34px; height: 34px; border-radius: 10px; flex: none;
@@ -89,19 +66,23 @@
 .leaflet-popup-tip { background: var(--glass-strong); }
 .leaflet-popup-content { margin: 12px 14px; font-size: 14px; }
 
+/* 霧面卡片（模擬行走面板等浮在地圖上的元件） */
+.glass-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 18px;
+  background: var(--glass-strong); backdrop-filter: saturate(180%) blur(30px); -webkit-backdrop-filter: saturate(180%) blur(30px);
+  box-shadow: var(--shadow-2); border: 0.5px solid var(--glass-border);
+}
+
 /* 平板／橫式：底部抽屜變成左側浮動面板（類似 iPad 地圖） */
 @media (min-width: 900px) and (orientation: landscape), (min-width: 1100px) {
   .sheet {
-    left: 16px; right: auto; width: 390px; top: calc(var(--safe-top) + 16px); bottom: calc(var(--tabbar-h) + 16px);
+    left: 16px; right: auto; width: 390px; top: calc(var(--safe-top) + 16px); bottom: 16px;
     height: auto; border-radius: var(--radius-l); transform: none !important; box-shadow: var(--shadow-2);
     border: 0.5px solid var(--glass-border);
   }
   .sheet-grabber { display: none; }
   .sheet-body { padding-bottom: 16px; padding-top: 12px; }
-  .map-top { left: 422px; right: 16px; flex-direction: row; align-items: flex-start; }
-  .map-top .route-card { flex: 1; max-width: 420px; }
-  .map-top .mode-bar { width: 340px; }
-  .map-fabs { top: calc(var(--safe-top) + 120px); right: 16px; }
+  .map-fabs { top: calc(var(--safe-top) + 16px); right: 16px; }
   .tabbar { justify-content: center; gap: 40px; }
 }
 
@@ -182,3 +163,43 @@
   animation: alert-blink 0.9s ease-in-out infinite alternate;
 }
 @keyframes alert-blink { from { opacity: 1; } to { opacity: 0.35; } }
+
+/* ===== Android 實機修正 ===== */
+/* Android WebView 不一定會真的模糊背景（backdrop-filter），半透明會讓底下文字透出來，
+   所以 App 內改用接近實色的材質（等同 iOS「降低透明度」的外觀） */
+html.no-blur {
+  --glass: rgb(247, 247, 249);
+  --glass-strong: rgb(249, 249, 251);
+}
+/* 實測：S21 FE 的 WebView 開啟 backdrop-filter 時，會把底下內容以半透明重疊畫出來（不是正常模糊），一律關閉 */
+html.no-blur *, html.no-blur *::before, html.no-blur *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+html.no-blur[data-theme="dark"] {
+  --glass: rgb(30, 30, 32);
+  --glass-strong: rgb(28, 28, 30);
+}
+@media (prefers-color-scheme: dark) {
+  html.no-blur:not([data-theme="light"]) {
+    --glass: rgb(30, 30, 32);
+    --glass-strong: rgb(28, 28, 30);
+  }
+}
+/* 動作表一律用實色卡片 */
+.as-group { background: var(--card); }
+:root[data-theme="dark"] .as-group { background: #2c2c2e; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .as-group { background: #2c2c2e; } }
+
+/* Leaflet 彈出框：提高權重蓋過 leaflet.css 的白底 */
+.leaflet-container .leaflet-popup-content-wrapper { background: var(--card); color: var(--label); border-radius: 14px; box-shadow: var(--shadow-2); }
+.leaflet-container .leaflet-popup-tip { background: var(--card); }
+.leaflet-container .leaflet-popup-content { margin: 12px 14px; font-size: 14px; line-height: 1.4; }
+.leaflet-container a.leaflet-popup-close-button { color: var(--label-2); }
+
+/* 模擬行走時收起底部抽屜，面板直接浮在地圖上 */
+.map-page.walking .sheet-clip { transform: translateY(110%); transition: transform 0.4s var(--ease); }
+.map-page .sheet-clip { transition: transform 0.4s var(--ease); }
+/* 清單內的分段控制撐滿整列；狀態文字不被擠成直排 */
+.cell > .segmented { flex: 1; }
+.server-status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 15px; line-height: 1.35; }
+.server-status > * { white-space: nowrap; }
+.cell-value { flex-shrink: 0; }
+.cell-main { flex: 1 1 auto; }

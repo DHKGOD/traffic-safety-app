@@ -164,6 +164,38 @@ export function modal({ title, left = '取消', right = '', onRight, content }) 
 }
 export const modalStack = []
 
+/* ---------- iOS 動作表（從底部升起的選單） ---------- */
+export function actionSheet({ title, message, options, value }) {
+  return new Promise((resolve) => {
+    const back = el('<div class="as-backdrop"></div>')
+    const sheet = el(`
+      <div class="as-wrap" role="dialog">
+        <div class="as-group">
+          ${title ? `<div class="as-title">${esc(title)}${message ? `<small>${esc(message)}</small>` : ''}</div>` : ''}
+          ${options.map((o, i) => `<button class="as-btn${o.value === value ? ' sel' : ''}" data-i="${i}">${o.icon ? icon(o.icon) : ''}${esc(o.label)}${o.value === value ? `<span class="check">${icon('checkmark')}</span>` : ''}</button>`).join('')}
+        </div>
+        <button class="as-btn as-cancel" data-cancel>取消</button>
+      </div>`)
+    if (!title) $('.as-btn', sheet).style.borderTop = '0'
+    document.body.append(back, sheet)
+    haptic(6)
+    const close = (v) => {
+      back.classList.add('out'); sheet.classList.add('out')
+      setTimeout(() => { back.remove(); sheet.remove() }, 300)
+      modalStack.splice(modalStack.indexOf(cancel), 1)
+      resolve(v)
+    }
+    const cancel = () => close(undefined)
+    modalStack.push(cancel)
+    back.addEventListener('click', cancel)
+    sheet.addEventListener('click', (e) => {
+      if (e.target.closest('[data-cancel]')) return cancel()
+      const b = e.target.closest('[data-i]')
+      if (b) { haptic(6); close(options[+b.dataset.i].value) }
+    })
+  })
+}
+
 /* ---------- 免責聲明 ---------- */
 export const DISCLAIMER = '依官方歷史事故統計提醒注意，不保證路況安全'
 export function disclaimer(text = DISCLAIMER) {

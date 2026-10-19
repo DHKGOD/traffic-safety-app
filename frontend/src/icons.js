@@ -46,6 +46,15 @@ const P = {
   crosshair: '<circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
   layers: '<path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/>',
   route: '<circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h8.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H16"/>',
+  // 分頁列選中時的實心圖示（.cut 用背景色挖空）
+  trophyFill: '<path fill="currentColor" stroke="none" d="M6 3h12a1 1 0 0 1 1 1v1h2a1 1 0 0 1 1 1v1.5A4 4 0 0 1 18.3 11.4 6 6 0 0 1 13 15.9V19h3a1 1 0 0 1 1 1v1H7v-1a1 1 0 0 1 1-1h3v-3.1a6 6 0 0 1-5.3-4.5A4 4 0 0 1 2 7.5V6a1 1 0 0 1 1-1h2V4a1 1 0 0 1 1-1Zm13 4v.5a2 2 0 0 1-1 1.7V7h1ZM5 7H4.9v.5a2 2 0 0 0 1 1.7V7H5Z"/>',
+  bubbleFill: '<path fill="currentColor" stroke="none" d="M6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4A2.5 2.5 0 0 1 4 13.5v-8A2.5 2.5 0 0 1 6.5 3Z"/><path class="cut" d="M12 6.5v4M12 13h.01"/>',
+  gearFill: '<path fill="currentColor" stroke="none" d="M10.3 2.2a1 1 0 0 1 1-.7h1.4a1 1 0 0 1 1 .7l.5 2a7.6 7.6 0 0 1 1.7 1l2-.6a1 1 0 0 1 1.1.4l.7 1.2a1 1 0 0 1-.2 1.2l-1.5 1.4a7.6 7.6 0 0 1 0 2l1.5 1.4a1 1 0 0 1 .2 1.2l-.7 1.2a1 1 0 0 1-1.1.4l-2-.6a7.6 7.6 0 0 1-1.7 1l-.5 2a1 1 0 0 1-1 .7h-1.4a1 1 0 0 1-1-.7l-.5-2a7.6 7.6 0 0 1-1.7-1l-2 .6a1 1 0 0 1-1.1-.4l-.7-1.2a1 1 0 0 1 .2-1.2l1.5-1.4a7.6 7.6 0 0 1 0-2L3.3 9.2a1 1 0 0 1-.2-1.2l.7-1.2a1 1 0 0 1 1.1-.4l2 .6a7.6 7.6 0 0 1 1.7-1l.5-2Z"/><circle class="cut-fill" cx="12" cy="12" r="3.2" stroke="none"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/>',
+  chevronDown: '<path d="m6 9 6 6 6-6"/>',
+  bike: '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16 9.5 9h6L18 16M12 16l-2.5-7M14 5h2.5"/>',
+  arrowSwap: '<path d="M7 4v16M7 4 4 7M7 4l3 3M17 20V4M17 20l-3-3M17 20l3-3"/>',
+  mappin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/>',
   trophy: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
 }
 

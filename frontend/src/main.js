@@ -1,4 +1,5 @@
 // App 入口：分頁列、各分頁的頁面堆疊、Android 返回鍵、首次啟動設定伺服器
+import '@fontsource-variable/inter'
 import './styles/base.css'
 import './styles/components.css'
 import './styles/views.css'
@@ -18,18 +19,20 @@ import { openSubmit } from './views/submit.js'
 import { startWalk } from './walk.js'
 
 applyTheme(savedTheme())
+// Android WebView 的毛玻璃不一定有效，App 內改用實色材質（見 views.css html.no-blur）
+if (isNative() || !CSS.supports('backdrop-filter', 'blur(2px)')) document.documentElement.classList.add('no-blur')
 
 const TABS = [
-  { id: 'map', label: '地圖', icon: 'map' },
-  { id: 'rank', label: '排行', icon: 'trophy' },
-  { id: 'feed', label: '回報', icon: 'bubble' },
-  { id: 'settings', label: '設定', icon: 'gear' },
+  { id: 'map', label: '地圖', icon: 'map', on: 'mapFill' },
+  { id: 'rank', label: '排行', icon: 'trophy', on: 'trophyFill' },
+  { id: 'feed', label: '回報', icon: 'bubble', on: 'bubbleFill' },
+  { id: 'settings', label: '設定', icon: 'gear', on: 'gearFill' },
 ]
 
 const app = $('#app')
 app.innerHTML = `
   <div class="tab-roots">${TABS.map((t) => `<div class="tab-root" data-root="${t.id}"></div>`).join('')}</div>
-  <nav class="tabbar">${TABS.map((t) => `<button class="tab" data-tab="${t.id}">${icon(t.icon)}<span>${t.label}</span></button>`).join('')}</nav>`
+  <nav class="tabbar">${TABS.map((t) => `<button class="tab" data-tab="${t.id}">${icon(t.icon, 'ic-off')}${icon(t.on, 'ic-on')}<span>${t.label}</span></button>`).join('')}</nav>`
 
 const stacks = Object.fromEntries(TABS.map((t) => [t.id, new Stack($(`[data-root="${t.id}"]`))]))
 let current = 'map'
@@ -56,7 +59,7 @@ const openReport = (h, back) => h && stacks[current].push(reportView(h, { back: 
 const mapPage = mapView({
   openReport,
   openSubmit,
-  startWalk: ({ map, hotspots }) => startWalk({ map, hotspots, onOpenReport: (h) => openReport(h, '地圖') }),
+  startWalk: (opts) => startWalk({ ...opts, onOpenReport: (h) => openReport(h, '地圖') }),
 })
 stacks.map.setRoot(mapPage)
 stacks.rank.setRoot(rankingView({ openReport }))

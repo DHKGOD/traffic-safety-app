@@ -44,6 +44,7 @@ def main() -> int:
             conn.execute(DROP)
     step("migrate.py")
     step("import_accidents.py")
+    step("clean_coords.py")
     step("build_hotspots.py")
     step("db_report.py")
     print("\n資料庫重建完成。")

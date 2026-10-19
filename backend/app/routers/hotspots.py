@@ -11,7 +11,7 @@ from ..advice import build_advice
 from ..config import DISCLAIMER
 from ..db import db, haversine_sql
 from ..filters import PERIOD_LABEL, WEATHER_LABEL, Period, Weather, accident_filter_sql
-from ..geo import locate_on_route, route_length
+from ..geo import RouteIndex, route_length
 
 router = APIRouter(prefix="/api/hotspots", tags=["危險路口"])
 
@@ -80,12 +80,13 @@ def route(req: RouteRequest) -> dict[str, Any]:
         cand = c.execute(sql, {"lat1": min(lats) - pad_lat, "lat2": max(lats) + pad_lat,
                                "lon1": min(lons) - pad_lon, "lon2": max(lons) + pad_lon,
                                "minn": req.min_accidents}).fetchall()
+    index = RouteIndex(req.points)
     hits = []
     for r in cand:
-        d, along = locate_on_route(req.points, r["lat"], r["lon"])
-        if d <= req.buffer_m:
-            r["distance_to_route_m"] = round(d, 1)
-            r["along_m"] = round(along, 1)
+        hit = index.locate(r["lat"], r["lon"], req.buffer_m)
+        if hit:
+            r["distance_to_route_m"] = round(hit[0], 1)
+            r["along_m"] = round(hit[1], 1)
             hits.append(_decorate(r))
     hits.sort(key=lambda r: r["along_m"])
     return {"route_length_m": round(route_length(req.points), 1), "buffer_m": req.buffer_m,

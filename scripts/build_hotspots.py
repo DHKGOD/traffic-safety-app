@@ -29,6 +29,7 @@ def clean_name(text: str) -> str:
     parts = []
     for p in text.split("/"):
         p = NOISE_RE.sub("", PREFIX_RE.sub("", p.strip().replace("台", "臺"))).strip()
+        p = re.sub(r"(路|街|道|段)口$", r"\1", p)  # 「復興路口」→「復興路」
         if p and p not in parts:
             parts.append(p)
     return " / ".join(parts) or text

@@ -214,10 +214,11 @@
 .stat-value { font-family: var(--font-rounded); font-size: 30px; font-weight: 700; margin-top: 4px; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
 .stat-value small { font-size: 15px; font-weight: 600; color: var(--label-2); margin-left: 2px; }
 
-/* 底部抽屜（地圖頁） */
+/* 底部抽屜（地圖頁）：外層裁切到分頁列上方，抽屜往下收合時不會透到分頁列底下 */
+.sheet-clip { position: absolute; left: 0; right: 0; top: 0; bottom: var(--tabbar-h); overflow: hidden; z-index: 30; pointer-events: none; }
 .sheet {
-  position: absolute; left: 0; right: 0; bottom: 0; z-index: 30;
-  height: calc(100% - var(--safe-top) - 64px);
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 30; pointer-events: auto;
+  height: calc(100% - var(--safe-top) - 66px);
   background: var(--glass-strong);
   backdrop-filter: saturate(180%) blur(28px); -webkit-backdrop-filter: saturate(180%) blur(28px);
   border-radius: var(--radius-l) var(--radius-l) 0 0;
@@ -231,7 +232,7 @@
 .sheet.dragging { transition: none; }
 .sheet-grabber { padding: 7px 0 4px; display: grid; place-items: center; cursor: grab; flex: none; }
 .sheet-grabber::before { content: ""; width: 38px; height: 5px; border-radius: 3px; background: var(--label-3); }
-.sheet-body { flex: 1; overflow-y: auto; padding: 0 16px calc(var(--tabbar-h) + 16px); touch-action: pan-y; overscroll-behavior: contain; }
+.sheet-body { flex: 1; overflow-y: auto; padding: 4px 16px 20px; touch-action: pan-y; overscroll-behavior: contain; }
 
 /* 跳出式提示 */
 .toast-wrap { position: fixed; top: calc(var(--safe-top) + 10px); left: 0; right: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
@@ -276,3 +277,67 @@
 .empty { text-align: center; padding: 48px 24px; color: var(--label-2); }
 .empty .icon { font-size: 48px; color: var(--label-3); margin-bottom: 10px; }
 .empty .t-title3 { color: var(--label); margin-bottom: 6px; }
+
+/* ===== iOS 細節元件（第二版設計）===== */
+/* 搜尋列（Apple 地圖底部抽屜頂端） */
+.search-field {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  height: 40px; padding: 0 10px; border-radius: 11px;
+  background: var(--fill); color: var(--label-2); font-size: 17px; text-align: left;
+}
+.search-field .icon { font-size: 17px; flex: none; }
+.search-field .q { flex: 1; min-width: 0; color: var(--label); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.search-field .q small { color: var(--label-2); font-weight: 400; }
+
+/* 膠囊按鈕列（天候、時段） */
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 12px -16px 0; padding: 0 16px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; display: inline-flex; align-items: center; gap: 5px;
+  height: 32px; padding: 0 12px; border-radius: 16px;
+  background: var(--fill); color: var(--label); font-size: 14px; font-weight: 600; white-space: nowrap;
+  transition: transform 0.15s, background 0.2s;
+}
+.chip:active { transform: scale(0.95); }
+.chip .icon { font-size: 15px; }
+.chip .caret { font-size: 11px; opacity: 0.55; margin-left: -1px; }
+.chip.on { background: var(--blue); color: #fff; }
+.chip.rain.on { background: var(--indigo); }
+
+/* iOS 動作表（action sheet） */
+.as-wrap { position: fixed; left: 0; right: 0; bottom: 0; z-index: 151; padding: 0 8px calc(var(--safe-bottom) + 8px); max-width: 520px; margin: 0 auto; animation: slide-up 0.42s var(--ease) both; }
+.as-wrap.out { animation: slide-up 0.3s var(--ease) reverse both; }
+.as-group { border-radius: 14px; overflow: hidden; background: var(--glass-strong); backdrop-filter: saturate(180%) blur(30px); -webkit-backdrop-filter: saturate(180%) blur(30px); }
+.as-title { padding: 14px 16px 12px; text-align: center; font-size: 13px; color: var(--label-2); font-weight: 600; }
+.as-title small { display: block; font-weight: 400; margin-top: 2px; }
+.as-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  height: 57px; font-size: 20px; color: var(--blue); border-top: 0.5px solid var(--sep);
+}
+.as-btn:active { background: var(--fill-2); }
+.as-btn.sel { font-weight: 600; }
+.as-btn .check { font-size: 18px; margin-left: 4px; }
+.as-cancel { margin-top: 8px; font-weight: 600; border-top: 0; background: var(--card); border-radius: 14px; }
+:root[data-theme="dark"] .as-cancel { background: #2c2c2e; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .as-cancel { background: #2c2c2e; } }
+.as-backdrop { position: fixed; inset: 0; z-index: 150; background: rgba(0, 0, 0, 0.3); animation: fade-in 0.3s both; }
+.as-backdrop.out { animation: fade-in 0.3s reverse both; }
+
+/* 分頁列：選中時改用實心圖示 */
+.tab .ic-on { display: none; }
+.tab.active .ic-on { display: inline-block; }
+.tab.active .ic-off { display: none; }
+
+/* 狀態列底下的漸層，讓地圖上的時間電量看得清楚 */
+.status-scrim {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 24; pointer-events: none;
+  height: calc(var(--safe-top) + 18px);
+  background: linear-gradient(to bottom, var(--glass) 0%, transparent 100%);
+}
+
+/* 實心圖示的挖空部分：用分頁列的底色 */
+.icon .cut { stroke: var(--tab-cut, #f9f9fb); stroke-width: 2.2; }
+.icon .cut-fill { fill: var(--tab-cut, #f9f9fb); }
+:root { --tab-cut: #f7f7f9; }
+:root[data-theme="dark"] { --tab-cut: #1c1c1e; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tab-cut: #1c1c1e; } }

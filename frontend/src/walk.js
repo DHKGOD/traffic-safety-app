@@ -1,11 +1,10 @@
-// 模擬行走：藍點沿 Demo 路線移動，接近危險路口時「語音＋提示音＋紅框」提醒
+// 模擬行走：藍點沿目前路線移動，接近危險路口時「語音＋提示音＋紅框」提醒
 // （平板常沒有 GPS 與震動，所以用模擬位置與畫面、聲音提醒）
 import { TextToSpeech } from '@capacitor-community/text-to-speech'
 import { isNative } from './api.js'
 import { icon } from './icons.js'
 import { L, walkerIcon } from './map-utils.js'
 import { $, LEVEL, el, esc, fmt, haptic, segmented } from './ui.js'
-import ROUTE from './data/demo-route.json'
 
 const ALERT_M = 70          // 距離路口多少公尺開始提醒
 const WALK_MPS = 1.25       // 一般步行速度（公尺/秒）
@@ -65,7 +64,9 @@ async function speak(text) {
   } catch { /* 沒有中文語音時只用提示音與紅框 */ }
 }
 
-export function startWalk({ map, hotspots, onOpenReport }) {
+export function startWalk({ map, hotspots, route: ROUTE, onOpenReport, onStop }) {
+  const BASE_MPS = { foot: WALK_MPS, bike: 4.5, car: 11 }[ROUTE.mode] || WALK_MPS // 依交通方式的實際速度
+  const ALERT_AT = { foot: ALERT_M, bike: 120, car: 250 }[ROUTE.mode] || ALERT_M   // 越快越早提醒
   if (!map || document.querySelector('.walk-panel')) return
   const cum = cumulative(ROUTE.points)
   const total = cum.at(-1)
@@ -82,11 +83,11 @@ export function startWalk({ map, hotspots, onOpenReport }) {
   const panel = el(`
     <div class="walk-panel" style="position:fixed;left:12px;right:12px;bottom:calc(var(--tabbar-h) + 12px);z-index:60;max-width:560px;margin:0 auto">
       <div class="walk-alert" style="display:none;margin-bottom:10px"></div>
-      <div class="route-card" style="flex-direction:column;align-items:stretch;gap:10px;padding:14px">
+      <div class="glass-card" style="flex-direction:column;align-items:stretch;gap:10px;padding:14px">
         <div style="display:flex;align-items:center;gap:12px">
           <span class="cell-icon" style="background:var(--blue);width:40px;height:40px;border-radius:12px;font-size:22px">${icon('walk')}</span>
           <div style="flex:1;min-width:0">
-            <div class="t-headline">模擬行走中</div>
+            <div class="t-headline">模擬${{ foot: '步行', bike: '騎車', car: '行車' }[ROUTE.mode] || '行走'}中</div>
             <div class="t-footnote c-2 walk-next">準備出發</div>
           </div>
           <button class="fab" data-w="toggle" style="border-radius:50%;width:44px;height:44px;background:var(--fill)">${icon('pause')}</button>
@@ -98,7 +99,7 @@ export function startWalk({ map, hotspots, onOpenReport }) {
     </div>`)
   document.body.appendChild(panel)
   $('.seg-speed', panel).replaceWith(segmented(
-    [{ value: '1', label: '1× 步行' }, { value: '4', label: '4×' }, { value: '10', label: '10×' }, { value: '25', label: '25×' }],
+    [{ value: '1', label: '1× 實際' }, { value: '4', label: '4×' }, { value: '10', label: '10×' }, { value: '30', label: '30×' }],
     String(speed), (v) => { speed = +v }))
 
   // 第一次互動時解鎖音效（瀏覽器規定要使用者觸發）
@@ -114,7 +115,7 @@ export function startWalk({ map, hotspots, onOpenReport }) {
     const box = $('.walk-alert', panel)
     box.style.display = 'block'
     box.innerHTML = `
-      <button class="route-card" data-w="open" style="width:100%;text-align:left;border:2px solid var(--red);animation:pop-in .4s var(--spring)">
+      <button class="glass-card" data-w="open" style="width:100%;text-align:left;border:2px solid var(--red);animation:pop-in .4s var(--spring)">
         <span class="cell-icon" style="background:var(--red);width:40px;height:40px;border-radius:12px;font-size:22px">${icon('warningFill')}</span>
         <span style="flex:1;min-width:0">
           <span class="t-headline" style="display:block;color:var(--red)">前方危險路口・${LEVEL[h.level].label}</span>
@@ -132,7 +133,7 @@ export function startWalk({ map, hotspots, onOpenReport }) {
     const dt = Math.min(0.1, (now - last) / 1000)
     last = now
     if (playing) {
-      dist = Math.min(total, dist + WALK_MPS * speed * dt)
+      dist = Math.min(total, dist + BASE_MPS * speed * dt)
       const pos = positionAt(ROUTE.points, cum, dist)
       marker.setLatLng(pos)
       if (!map.getBounds().pad(-0.25).contains(pos)) map.panTo(pos, { animate: true, duration: 0.5 })
@@ -141,7 +142,7 @@ export function startWalk({ map, hotspots, onOpenReport }) {
       if (ahead) {
         const gap = ahead.along_m - dist
         $('.walk-next', panel).textContent = `下一個危險路口：${ahead.name}（${fmt.dist(Math.max(0, gap))}）`
-        if (gap <= ALERT_M && !alerted.has(ahead.id)) {
+        if (gap <= ALERT_AT && !alerted.has(ahead.id)) {
           alerted.add(ahead.id)
           ahead.__ahead = Math.max(10, gap)
           showAlert(ahead)
@@ -151,8 +152,8 @@ export function startWalk({ map, hotspots, onOpenReport }) {
       }
       if (dist >= total) {
         playing = false
-        speak('已抵達目的地，捷運新莊站')
-        $('.walk-next', panel).textContent = '已抵達捷運新莊站 🎉'
+        speak(`已抵達目的地，${ROUTE.end.name}`)
+        $('.walk-next', panel).textContent = `已抵達 ${ROUTE.end.name}`
         $('[data-w="toggle"]', panel).innerHTML = icon('refresh')
       }
     }
@@ -179,6 +180,7 @@ export function startWalk({ map, hotspots, onOpenReport }) {
     clearTimeout(alertTimer)
     try { speechSynthesis?.cancel() } catch { /* ignore */ }
     if (isNative()) TextToSpeech.stop().catch(() => {})
+    onStop?.()
   }
   return { stop }
 }

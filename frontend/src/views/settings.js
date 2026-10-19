@@ -29,9 +29,9 @@ export function settingsView({ openAdmin }) {
         </div>
         <div class="cell" style="--sep-inset:58px">
           <span class="cell-icon" style="background:var(--green)">${icon('wifi')}</span>
-          <span class="cell-main server-status c-2">尚未測試</span>
-          <button class="btn btn-tinted btn-small" data-test>測試並儲存</button>
+          <span class="cell-main"><span class="server-status c-2">尚未測試</span></span>
         </div>
+        <button class="cell tappable" data-test style="justify-content:center;color:var(--blue);font-weight:600">測試連線並儲存</button>
       </div>
       <div class="section-footer">本機模擬雲端：在電腦執行 start_server.bat，畫面會顯示要輸入的網址（手機需連同一個 Wi-Fi）。搬到雲端主機後，只要在這裡改成新網址即可，不用重新安裝 App。</div>
     </div>
@@ -46,7 +46,7 @@ export function settingsView({ openAdmin }) {
       <div class="list">
         <button class="cell tappable" data-admin style="--sep-inset:58px">
           <span class="cell-icon" style="background:var(--indigo)">${icon('database')}</span>
-          <span class="cell-main"><span class="cell-title" style="display:block">後台：資料庫狀態</span></span>
+          <span class="cell-main"><span class="cell-title" style="display:block">資料庫狀態</span></span>
           <span class="cell-value db-count"></span><span class="chev">${icon('chevronRight')}</span>
         </button>
         <div class="cell" style="--sep-inset:58px">
@@ -56,7 +56,7 @@ export function settingsView({ openAdmin }) {
         </div>
         <div class="cell" style="--sep-inset:58px">
           <span class="cell-icon" style="background:var(--gray)">${icon('person')}</span>
-          <span class="cell-main"><span class="cell-title" style="display:block">匿名裝置代碼</span></span>
+          <span class="cell-main"><span class="cell-title" style="display:block">裝置代碼</span></span>
           <span class="cell-value t-footnote">${esc(deviceId())}</span>
         </div>
       </div>

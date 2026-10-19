@@ -68,6 +68,7 @@ def ensure_database() -> None:
         if not any((ROOT / "data" / "raw" / "a2_115").glob("*.zip")):
             py("download_data.py")
         py("import_accidents.py")
+        py("clean_coords.py")
         py("build_hotspots.py")
 
 
