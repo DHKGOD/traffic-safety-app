@@ -25,32 +25,40 @@
 - ✅ 家人模式（分享代碼存資料庫 shared_route、常用路線、長輩模式）
 - ✅ App 圖示與啟動畫面、平板橫式版面（Playwright 1280×800 檢查）
 - ✅ Codex 撰寫匯入腳本單元測試 tests/test_import.py（Claude 審查後 commit）；Codex 發現 to_int("inf") 會中斷匯入 → 已修正，to_float 也排除 inf/nan
+- ✅ Codex 交叉審查第 2、3 次（合計 12 項，11 項成立已修正，1 項經查證不成立）
+- ✅ 危險路口合併改良（同一路口被格線切開的問題）
 - ⬜ 氣象署雨天模式（需授權碼）
 
 ## 最後完成的事情
 
 | commit | 內容 |
 |---|---|
-| （本次） | AI 肇因預測（模型 A 對照 acc 0.537／macro-F1 0.526；模型 B 情境 acc 0.361／macro-F1 0.314／top-3 0.683，基準 0.242／0.039／0.475）、AI API 與報告頁情境預測、E2E 14 項 |
-| `3228248` | 忽略 Playwright 測試輸出 |
-| `4415c98` | UI 第二版、自訂路線、座標品質檢查、E2E、實機巡檢腳本 |
-| `ce67e8e` | 文件：README、HANDOFF、TASKS、ER 圖、決策、雲端部署、接力說明 |
-| `89a160c` | 前端 App 與 Android 專案；階段 2 驗收 |
+| `b04faf1` | 實機測試腳本：先喚醒螢幕，鎖定時給出提示 |
+| `15aa759` | 修正 Codex 第三次審查：分享代碼防暴力猜測、E2E 只清自己的資料、守護中切換長輩模式即時生效、路口合併結果固定 |
+| `2e02eb7` | README：功能總覽與測試方法 |
+| `f99adb7` | 危險路口彙整改良：合併被格線切開的相鄰格子（不連鎖合併）＋單元測試；更新筆數報告 |
+| `b136bfc` | 匯入腳本單元測試（由 Codex 撰寫、Claude 審查）；修正 Codex 發現的 to_int('inf') 例外，to_float 排除 inf/nan |
+| `ef71fb3` | 更新 HANDOFF 進度 |
+| `a5d048e` | 隱藏捲軸（iOS 風格）；平板橫式版面檢查 |
+| `f177d74` | 家人模式（分享路線代碼存資料庫、常用路線、長輩模式：大字＋提早提醒＋慢速語音＋AI 預設長輩）；E2E 16 項、Java 測試 7 項；更新 ER 圖與任務 |
+| `3e74c83` | 修正 Codex 第二次審查：服務被系統重啟時恢復定位、Android 7 震動相容；實機測試腳本略過不完整截圖 |
+| `3f43567` | App 圖示與啟動畫面（iOS 風格紅色警示圖示、深淺色啟動畫面） |
+| `37ccc58` | 背景守護模式：靈動島懸浮提醒（不受三星簡要通知影響）、通知分組修正、實機測試腳本；更新 HANDOFF 與決策紀錄 |
+| `bba487b` | 修正 Codex 審查 5 項（自動建置前端、初始化步驟可續做、自動訓練模型、健康檢查含資料庫、設定頁顯示正確模型）；背景守護模式原生外掛（前景服務、提醒邏輯、Java 單元測試）與 App 介面 |
 
 ## 進行中的工作
 
-無（本段落空白代表可以直接從「下一步」開始）。
+無（可以直接從「下一步」開始）。
 
 ## 下一步（可直接開始）
 
-1. **Codex 交叉審查**：`node "%USERPROFILE%\.claude\plugins\marketplaces\openai-codex\plugins\codex\scripts\codex-companion.mjs" review --base e785c0c`（或在 Claude Code 用 `/codex:review --base e785c0c`），修正合理問題，記錄在下方「交叉審查紀錄」。
-2. **背景守護模式**（使用者提議，價值最高）：Capacitor 自寫 Android 外掛（Kotlin）
-   - 前景服務＋常駐通知「守護中」；Geofencing 註冊附近 100 個危險路口（離開範圍時重新註冊）
-   - Activity Recognition：走路／騎車／開車 → 提醒距離 50／150／250 m；搭車（公車、捷運）時靜音
-   - heads-up 通知＋TTS 語音（壓低 Google Maps 音量）＋震動；方向判斷與冷卻時間
-   - 危險路口資料快取在手機（新北市），離線可用
-   - 權限：ACCESS_BACKGROUND_LOCATION、POST_NOTIFICATIONS、FOREGROUND_SERVICE_LOCATION、ACTIVITY_RECOGNITION
-3. 氣象署（拿到授權碼後）：即時觀測＋鄉鎮預報 → 自動雨天模式；用測站降雨時數校正「雨天風險倍數」（AI 任務 2）。
+1. **手機解鎖後重跑實機巡檢**（最後一輪因手機螢幕鎖定未跑）：`adb reverse tcp:8000 tcp:8000`，`uv run python scripts/phone_tour.py`，預期 22 步、JS 錯誤 0。
+2. **氣象署雨天模式**（等使用者提供 `CWA_API_KEY`；拿到後先實際呼叫 API 看回傳格式再寫程式，不要憑記憶猜格式）：
+   - 後端 `backend/app/routers/weather.py`：`GET /api/weather/now?lat&lon` → 自動氣象站即時觀測（O-A0001-001 或 O-A0003-001）找最近測站的「過去 1 小時雨量」；鄉鎮預報（F-D0047 系列）取未來 3 小時降雨機率。結果快取 10 分鐘。沒有授權碼時回 `{available:false}`，前端隱藏功能。
+   - 前端：地圖膠囊列加「自動」天候選項；下雨或降雨機率 ≥ 60% 時自動切換雨天模式並提示。
+   - AI 任務 2（天候風險校正）：取得測站每日／每小時雨量，計算各行政區「下雨時數占比」，雨天風險倍數 = (雨天事故占比) ÷ (下雨時數占比)，取代全國雨天比例；結果寫進 hotspot 或新表，報告頁顯示「下雨時事故風險是平常的 N 倍」。
+3. （選用）背景守護改進：Activity Recognition 區分搭車與開車（需 ACTIVITY_RECOGNITION 權限）。
+4. （選用）錄 Demo 影片：S21 FE 螢幕錄影「規劃路線 → 開背景守護模擬 → 切到 Google 地圖 → 靈動島提醒跳出」。
 
 ## 已知問題與注意事項
 
