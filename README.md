@@ -11,7 +11,23 @@
 | 前端 | Vite ＋ Leaflet ＋ MapLibre 向量地圖（`frontend/`），Capacitor 8 包成 Android APK |
 | AI | scikit-learn 肇因預測（`ai/`，模型版本存在資料庫） |
 
-文件：[ER 圖](docs/er-diagram.md)・[資料庫筆數報告](docs/db-report.md)・[技術決策](docs/decisions.md)・[搬到雲端](docs/deploy-cloud.md)・[Claude／Codex 接力](docs/ai-handoff.md)・[交接](HANDOFF.md)・[任務](TASKS.md)
+文件：[ER 圖](docs/er-diagram.md)・[資料庫筆數報告](docs/db-report.md)・[AI 測試結果](docs/ai-report.md)・[技術決策](docs/decisions.md)・[搬到雲端](docs/deploy-cloud.md)・[Claude／Codex 接力](docs/ai-handoff.md)・[交接](HANDOFF.md)・[任務](TASKS.md)
+
+## 功能
+
+| 功能 | 說明 |
+|---|---|
+| 路線上的危險路口 | Demo 路線輔大 → 新莊捷運站；也可搜尋任意起訖點（例：台北車站 → 苗栗車站），步行／自行車／汽機車 |
+| 晴天／雨天、時段模式 | 依事故發生時的天候與時段篩選危險路口（iOS 動作表切換） |
+| 路口體檢報告 | 事故數、受傷、雨天與夜間占比、24 小時分布、主要肇因、事故型態、車種、年齡、改善建議、附近回報；可匯出 HTML（列印成 PDF） |
+| **AI 情境預測** | 選天候、時段、交通工具、年齡，預測這個路口最可能的事故肇因與提醒；每次預測記錄模型版本（[測試結果](docs/ai-report.md)） |
+| 模擬行走 | 藍點沿路線移動，接近危險路口時語音＋提示音＋紅框（平板沒有 GPS 也能展示） |
+| **背景守護模式**（Android） | 切到 Google 地圖或滑手機時，接近危險路口跳出「靈動島」懸浮提醒＋語音＋震動；依速度自動判斷步行／騎車／開車，搭大眾運輸可靜音；展示用路線模擬 |
+| **家人模式** | 替長輩規劃路線 → 產生 6 碼代碼（存資料庫）→ 長輩手機輸入代碼下載；長輩模式（大字、提早提醒、語音放慢） |
+| 回報「差點被撞」 | 存入資料庫，其他裝置 5 秒內在地圖與動態牆看到 |
+| 排行 | 新莊區／泰山區／全國，依天候時段排序 |
+| 後台 | 各資料表筆數（即時 SQL）、資料表關係、各月件數 |
+| 設定 | 伺服器位址（換雲端不必重新打包）、深淺色、守護模式、靈動島權限 |
 
 ---
 
@@ -56,10 +72,20 @@ powershell -ExecutionPolicy Bypass -File scripts\build_apk.ps1
 
 ```bash
 uv sync                        # Python 套件
-uv run pytest                  # API 測試（需要資料庫在執行）
 cd frontend && npm install
 npm run dev                    # 前端開發伺服器 http://localhost:5173（API 位址在設定頁填 http://127.0.0.1:8000）
+uv run python ai/train_cause_model.py   # 重新訓練 AI（約 2 分鐘，寫入 model_version 與 docs/ai-report.md）
 ```
+
+### 測試（每次修改後都要跑）
+
+| 測試 | 指令 | 內容 |
+|---|---|---|
+| 後端＋資料處理 | `uv run pytest` | 43 項：API、PostGIS 與替代查詢一致、回報、路線分享、AI、匯入純函式、路口合併 |
+| 端對端（模擬真人操作） | `powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1` | 16 項：Playwright 手機尺寸＋平板橫式，實際點完每個功能（結束後自動清除測試資料） |
+| 守護模式邏輯（Java） | `powershell -ExecutionPolicy Bypass -File scripts\test_guardian.ps1` | 7 項：提醒距離、接近判斷、冷卻、搭車靜音、長輩模式 |
+| 實機巡檢（S21 FE） | `adb reverse tcp:8000 tcp:8000` 後 `uv run python scripts/phone_tour.py` | 自動點過 22 個畫面、收集 JS 錯誤、截圖到 `logs/phone_tour/` |
+| 實機背景守護 | `uv run python scripts/guardian_device_test.py 60` | 開始路線模擬 → 回到桌面 → 確認提醒與靈動島截圖 |
 
 ## 5. 開發環境與工具清單
 
