@@ -61,6 +61,11 @@ STEPS: list[tuple[str, str, float]] = [
 
 async def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
+    adb("shell", "input", "keyevent", "KEYCODE_WAKEUP")
+    time.sleep(1)
+    if "isKeyguardShowing=true" in adb("shell", "dumpsys", "window"):
+        print("手機目前鎖定中：請解鎖手機並保持螢幕亮著（螢幕關閉時 App 的 WebView 會暫停，無法巡檢）")
+        return 2
     adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1")
     time.sleep(3)
     sock = re.search(r"webview_devtools_remote_\d+", adb("shell", "cat", "/proc/net/unix"))

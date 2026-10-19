@@ -58,6 +58,11 @@ def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     for f in OUT.glob("*"):
         f.unlink()
+    adb("shell", "input", "keyevent", "KEYCODE_WAKEUP")
+    time.sleep(1)
+    if "isKeyguardShowing=true" in adb("shell", "dumpsys", "window"):
+        print("手機目前鎖定中：請解鎖手機並保持螢幕亮著")
+        return 2
     adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1")
     time.sleep(3)
     res = asyncio.run(cdp(f"""(async()=>{{
