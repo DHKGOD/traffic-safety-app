@@ -6,7 +6,7 @@ import { L, createMap, drawRoute, hotspotIcon, meIcon, pinIcon, reportIcon } fro
 import { DEMO, MODE_LABEL, PERIOD_HINT, PERIOD_OPTS, emit, on, setMode, setRoute, state } from '../store.js'
 import { pickWeather, renderWeatherChip } from '../weather.js'
 import { $, $$, LEVEL, actionSheet, disclaimer, el, emptyState, esc, fmt, haptic, skeletonList, toast, toastError } from '../ui.js'
-import { guardianAvailable, guardianState, overlayAllowed, startGuardian, stopGuardian } from '../guardian.js'
+import { guardianAvailable, guardianState, openNavigation, overlayAllowed, startGuardian, stopGuardian } from '../guardian.js'
 import { openPlanner } from './planner.js'
 
 const WIDE = '(min-width: 900px) and (orientation: landscape), (min-width: 1100px)'
@@ -18,6 +18,18 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     <section class="page map-page">
       <div id="map"></div>
       <div class="status-scrim"></div>
+      <div class="map-top">
+        <button class="gsearch" data-act="plan">
+          <span class="gs-pin">${icon('mappin')}</span>
+          <span class="q route-q"></span>
+          <span class="gs-go" aria-hidden="true">${icon('route')}</span>
+        </button>
+        <div class="chips top-chips">
+          <button class="chip" data-act="weather"></button>
+          <button class="chip" data-act="period"></button>
+          <button class="chip" data-act="demo" hidden>${icon('route')}回到 Demo 路線</button>
+        </div>
+      </div>
       <button class="guardian-pill" data-act="guardian" hidden>
         <span class="g-ic">${icon('shield')}</span>
         <span class="g-text"><b>守護中</b><span class="g-sub"></span></span>
@@ -36,17 +48,8 @@ export function mapView({ openReport, openSubmit, startWalk }) {
       <div class="sheet-clip"><div class="sheet">
         <div class="sheet-grabber"></div>
         <div class="sheet-body">
-          <button class="search-field" data-act="plan">
-            ${icon('search')}
-            <span class="q route-q"></span>
-          </button>
-          <div class="chips">
-            <button class="chip" data-act="weather"></button>
-            <button class="chip" data-act="period"></button>
-            <button class="chip" data-act="demo" hidden>${icon('route')}回到 Demo 路線</button>
-          </div>
           <div class="sheet-head">
-            <div class="t-title3">路線上的危險路口</div>
+            <div class="t-title3">路線上的危險路口<span class="head-count"></span></div>
             <span class="pill gray conn">${icon('wifi')}連線中</span>
           </div>
           <div class="summary-row">
@@ -107,7 +110,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
   function fitRoute(animate = true) {
     const pad = matchMedia(WIDE).matches
       ? { paddingTopLeft: [440, 60], paddingBottomRight: [80, 60] }
-      : { paddingTopLeft: [30, 60], paddingBottomRight: [70, 300] }
+      : { paddingTopLeft: [30, 150], paddingBottomRight: [70, 260] }
     map.fitBounds(routeLayer.getBounds(), { ...pad, animate, maxZoom: 17 })
   }
 
@@ -156,6 +159,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
       markers.set(h.id, m)
     })
     $('.s-count', page).textContent = hotspots.length
+    $('.head-count', page).textContent = hotspots.length
     $('.s-acc', page).textContent = fmt.n(hotspots.reduce((s, h) => s + h.filtered_count, 0))
   }
 
@@ -215,7 +219,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     selected = h
     markers.get(h.id)?.setIcon(hotspotIcon(h, h.rank, true))
     map.flyTo([h.lat, h.lon], Math.max(map.getZoom(), 17), { duration: 0.6 })
-    L.popup({ offset: [0, -10], closeButton: false, autoPan: true, autoPanPaddingTopLeft: [16, 70], autoPanPaddingBottomRight: [70, 290] })
+    L.popup({ offset: [0, -10], closeButton: false, autoPan: true, autoPanPaddingTopLeft: [16, 150], autoPanPaddingBottomRight: [70, 250] })
       .setLatLng([h.lat, h.lon])
       .setContent(`<div style="min-width:170px"><div style="font-weight:600;font-size:15px">${esc(h.name)}</div>
         <div style="color:var(--label-2);margin:2px 0 8px">${h.filtered_count} 件事故・${LEVEL[h.level].label}</div>
@@ -243,18 +247,27 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     }
     const v = await actionSheet({
       title: '背景守護模式',
-      message: '開啟後可以切到 Google 地圖或其他 App，接近危險路口時會跳出通知、語音與震動提醒',
+      message: '開啟後可以切到 Google 地圖或其他 App：畫面邊緣會有護航小圖示，接近危險路口時跳出提醒、語音與震動',
       options: [
+        { value: 'nav', label: `導航護航（開 Google 地圖到${state.route.end.name}）`, icon: 'route' },
         { value: 'gps', label: '開始守護（使用 GPS）', icon: 'shield' },
-        { value: 'sim', label: '展示：沿目前路線模擬', icon: 'route' },
+        { value: 'sim', label: '展示：沿目前路線模擬', icon: 'play' },
       ],
     })
     if (!v) return
     try {
+      const r = state.route
       if (v === 'gps') await startGuardian()
-      else await startGuardian({ simulate: state.route.points, simSpeed: state.route.mode === 'car' ? 14 : state.route.mode === 'bike' ? 6 : 4 })
-      toast(v === 'gps' ? '背景守護已開啟，可以切到其他 App 了' : '展示模擬已開始，可以按主畫面鍵切到其他 App 觀看提醒', { icon: 'shield', color: 'var(--blue)', ms: 4500 })
-      if (!(await overlayAllowed())) setTimeout(() => toast('建議到「設定」開啟靈動島懸浮提醒，在其他 App 上也看得到', { icon: 'sparkles', color: '#000', ms: 5000 }), 1500)
+      else if (v === 'nav') await startGuardian({ mode: r.mode })
+      else await startGuardian({ simulate: r.points, simSpeed: r.mode === 'car' ? 14 : r.mode === 'bike' ? 6 : 4 })
+      const overlay = await overlayAllowed()
+      if (v === 'nav') {
+        toast('護航已開啟，正在打開 Google 地圖導航', { icon: 'shield', color: 'var(--blue)', ms: 3000 })
+        setTimeout(() => openNavigation(r.end, r.mode).catch((e) => toastError(e.message || '無法打開地圖')), overlay ? 600 : 2600)
+      } else {
+        toast(v === 'gps' ? '背景守護已開啟，可以切到其他 App 了' : '展示模擬已開始，可以按主畫面鍵切到其他 App 觀看提醒', { icon: 'shield', color: 'var(--blue)', ms: 4500 })
+      }
+      if (!overlay) setTimeout(() => toast('到「設定」開啟靈動島懸浮提醒，在 Google 地圖上才看得到護航小圖示', { icon: 'sparkles', color: '#000', ms: 5000 }), v === 'nav' ? 0 : 1500)
     } catch (e) {
       toastError(e.message || '無法開啟守護模式')
     }
@@ -297,66 +310,96 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     $('.s-rep', page).textContent = b ? state.reports.filter((r) => b.contains([r.lat, r.lon])).length : '–'
   }
 
-  /* ---------- 底部抽屜拖曳（三段：收合／一半／全開） ---------- */
-  const SNAP_PEEK = 268
-  let snapIdx = 0
+  /* ---------- 底部抽屜拖曳（四段：最小（只剩搜尋列）／預設／一半／全開） ----------
+     觸控用 touch 事件自己處理：未全開時整個抽屜跟著手指走（清單不捲動）；全開時清單可捲動，
+     清單已在最上方再往下拉就改成拖抽屜。位移用 requestAnimationFrame 更新，避免卡頓。 */
+  const SNAP_PEEK = 236
+  const MINI = 0, PEEK = 1, FULL = 3
+  let snapIdx = PEEK
+  const body = $('.sheet-body', page)
+  // 最小：只露出把手＋「路線上的危險路口」標題列（像 Google 地圖收起時只剩一條）
+  const miniHeight = () => {
+    const f = $('.sheet-head', page)
+    return f ? f.offsetTop + f.offsetHeight + 4 : 72
+  }
   const snaps = () => {
     const h = sheet.getBoundingClientRect().height
-    return [Math.max(0, h - SNAP_PEEK), h * 0.42, 0]
+    return [Math.max(0, h - miniHeight()), Math.max(0, h - SNAP_PEEK), h * 0.42, 0]
   }
   function setSnap(i) {
     snapIdx = i
+    sheet.classList.toggle('full', i === FULL)
+    sheet.classList.toggle('mini', i === MINI)
     if (matchMedia(WIDE).matches) { sheet.style.transform = ''; return }
+    if (i !== FULL) body.scrollTop = 0
     sheet.style.transform = `translateY(${snaps()[i]}px)`
   }
+
   let drag = null
-  sheet.addEventListener('pointerdown', (e) => {
+  let raf = 0
+  const render = () => { raf = 0; if (drag?.moving) sheet.style.transform = `translateY(${drag.cur}px)` }
+  function dragStart(y, target) {
     if (matchMedia(WIDE).matches) return
-    const body = $('.sheet-body', page)
-    if (snapIdx === 2 && e.target.closest('.sheet-body') && body.scrollTop > 0) return
-    if (e.target.closest('.chips')) return // 膠囊列可左右滑
-    drag = { y: e.clientY, base: snaps()[snapIdx], t: Date.now(), pending: true }
-  })
-  window.addEventListener('pointermove', (e) => {
-    if (!drag) return
-    const dy = e.clientY - drag.y
-    if (drag.pending) {
-      if (Math.abs(dy) < 8) return
-      drag.pending = false
-      const body = $('.sheet-body', page)
-      // 全開時往上滑 → 交給清單捲動
-      if (snapIdx === 2 && dy < 0 && body.scrollHeight > body.clientHeight) { drag = null; return }
-    }
-    drag.moved = true
-    sheet.classList.add('dragging')
-    sheet.style.transform = `translateY(${Math.max(0, drag.base + dy)}px)`
-  })
-  const endDrag = (e) => {
-    if (!drag) return
-    sheet.classList.remove('dragging')
-    if (drag.moved) {
-      const dy = e.clientY - drag.y
-      const v = dy / Math.max(1, Date.now() - drag.t)
-      const cur = drag.base + dy
-      const s = snaps()
-      let i = s.reduce((best, y, j) => (Math.abs(y - cur) < Math.abs(s[best] - cur) ? j : best), 0)
-      if (v < -0.5) i = Math.min(2, snapIdx + 1)
-      if (v > 0.5) i = Math.max(0, snapIdx - 1)
-      setSnap(i)
-      // 拖曳結束時不要觸發點擊
-      sheet.addEventListener('click', (ev) => ev.stopPropagation(), { capture: true, once: true })
-    }
-    drag = null
+    drag = { y0: y, base: snaps()[snapIdx], cur: snaps()[snapIdx], moving: false, decided: false, samples: [[performance.now(), y]] }
   }
-  window.addEventListener('pointerup', endDrag)
-  window.addEventListener('pointercancel', endDrag)
-  $('.sheet-grabber', page).addEventListener('click', () => setSnap(snapIdx === 0 ? 1 : 0))
+  /** 回傳 true 表示這次移動由抽屜處理（呼叫端要阻止預設捲動）。 */
+  function dragMove(y) {
+    if (!drag) return false
+    const dy = y - drag.y0
+    if (!drag.decided) {
+      if (Math.abs(dy) < 4) return snapIdx !== FULL
+      drag.decided = true
+      // 全開時：往上滑、或清單不在最上方 → 交給清單捲動
+      if (snapIdx === FULL && (dy < 0 || body.scrollTop > 0)) { drag = null; return false }
+      drag.moving = true
+      drag.y0 = y // 從這裡開始算，避免一開始跳動
+      sheet.classList.add('dragging')
+    }
+    const s = snaps()
+    let cur = drag.base + (y - drag.y0)
+    if (cur < 0) cur = cur / 3 // 超過全開時加阻尼
+    if (cur > s[MINI]) cur = s[MINI] + (cur - s[MINI]) / 3
+    drag.cur = cur
+    drag.samples.push([performance.now(), y])
+    if (drag.samples.length > 6) drag.samples.shift()
+    if (!raf) raf = requestAnimationFrame(render)
+    return true
+  }
+  function dragEnd() {
+    if (!drag) return
+    const d = drag
+    drag = null
+    sheet.classList.remove('dragging')
+    if (!d.moving) return
+    const [t0, y0] = d.samples[0]
+    const [t1, y1] = d.samples.at(-1)
+    const v = (y1 - y0) / Math.max(1, t1 - t0) // px/ms，正值＝往下
+    const s = snaps()
+    let i = s.reduce((best, y, j) => (Math.abs(y - d.cur) < Math.abs(s[best] - d.cur) ? j : best), 0)
+    if (v < -0.4) i = s.findLastIndex((y) => y < d.cur - 4) // 快速往上甩：到上一段
+    if (v > 0.4) i = s.findIndex((y) => y > d.cur + 4)     // 快速往下甩：到下一段
+    if (i < 0) i = v > 0 ? MINI : FULL
+    setSnap(i)
+    // 拖曳結束時不要觸發點擊
+    sheet.addEventListener('click', (ev) => ev.stopPropagation(), { capture: true, once: true })
+  }
+  // 觸控（手機）
+  sheet.addEventListener('touchstart', (e) => dragStart(e.touches[0].clientY, e.target), { passive: true })
+  sheet.addEventListener('touchmove', (e) => { if (dragMove(e.touches[0].clientY) && e.cancelable) e.preventDefault() }, { passive: false })
+  sheet.addEventListener('touchend', dragEnd)
+  sheet.addEventListener('touchcancel', dragEnd)
+  // 滑鼠（電腦瀏覽器）
+  sheet.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') dragStart(e.clientY, e.target) })
+  window.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') dragMove(e.clientY) })
+  window.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse') dragEnd() })
+  // 點把手：最小 ↔ 預設
+  $('.sheet-grabber', page).addEventListener('click', () => setSnap(snapIdx === MINI ? PEEK : MINI))
   window.addEventListener('resize', () => setSnap(snapIdx))
 
   /* ---------- 訂閱全域事件 ---------- */
   on((type, payload) => {
     if (type === 'mode') { renderHeader(); if (map) load() }
-    if (type === 'route' && map) { drawRouteLayer(); load(); setSnap(0) }
+    if (type === 'route' && map) { drawRouteLayer(); load(); setSnap(PEEK) }
     if (type === 'reports') {
       drawReports(payload.fresh)
       if (!payload.initial && payload.fresh.length) {

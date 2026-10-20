@@ -33,6 +33,17 @@ public class GuardianEngineTest {
     }
 
     @Test
+    public void markedAlertedIsSkippedUntilCooldown() {
+        // App 內模擬行走已提醒過的路口，交給背景服務後不再重複
+        long t = 1_000_000;
+        e.markAlerted(1, t);
+        assertNull(e.onLocation(HLAT - 100 * M, HLON, 1.2, t += 1000));
+        assertNull(e.onLocation(HLAT - 40 * M, HLON, 1.2, t += 1000));
+        e.onLocation(HLAT - 300 * M, HLON, 1.2, t += GuardianEngine.COOLDOWN_MS); // 冷卻過後離開
+        assertNotNull(e.onLocation(HLAT - 40 * M, HLON, 1.2, t += 1000));         // 再次接近才提醒
+    }
+
+    @Test
     public void movingAwayDoesNotAlert() {
         long t = 0;
         assertNotNull(e.onLocation(HLAT + 30 * M, HLON, 1.2, t += 1000));            // 一開啟就在範圍內：提醒一次

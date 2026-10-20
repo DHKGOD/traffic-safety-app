@@ -21,7 +21,7 @@ import org.json.JSONObject;
 
 import tw.edu.fju.trafficsafety.R;
 
-/** JS 介面：Guardian.start / stop / status / testAlert，事件 guardianStatus。 */
+/** JS 介面：Guardian.start / stop / status / testAlert / walkAlert，事件 guardianStatus。 */
 @CapacitorPlugin(
         name = "Guardian",
         permissions = {
@@ -36,6 +36,18 @@ public class GuardianPlugin extends Plugin {
         GuardianService.listener = (JSONObject status) -> {
             try { notifyListeners("guardianStatus", JSObject.fromJSONObject(status)); } catch (Exception ignored) { }
         };
+    }
+
+    @Override
+    protected void handleOnResume() {
+        super.handleOnResume();
+        GuardianService.setAppVisible(true);
+    }
+
+    @Override
+    protected void handleOnPause() {
+        super.handleOnPause();
+        GuardianService.setAppVisible(false);
     }
 
     private boolean needNotif() {
@@ -72,9 +84,13 @@ public class GuardianPlugin extends Plugin {
         i.putExtra("server", call.getString("server", ""));
         i.putExtra("mode", call.getString("mode", "auto"));
         i.putExtra("elder", call.getBoolean("elder", false));
+        i.putExtra("source", call.getString("source", "guardian"));
         if (call.getArray("simulate") != null) {
             i.putExtra("simulate", call.getArray("simulate").toString());
             i.putExtra("simSpeed", call.getDouble("simSpeed", 1.4));
+            // App 內模擬行走交給背景：同一組路線危險路口、已提醒過的編號
+            if (call.getArray("simHotspots") != null) i.putExtra("simHotspots", call.getArray("simHotspots").toString());
+            if (call.getArray("simSkip") != null) i.putExtra("simSkip", call.getArray("simSkip").toString());
         }
         ContextCompat.startForegroundService(getContext(), i);
         JSObject r = new JSObject();
@@ -124,6 +140,70 @@ public class GuardianPlugin extends Plugin {
         JSObject r = new JSObject();
         r.put("allowed", false);
         r.put("opened", true);
+        call.resolve(r);
+    }
+
+    private IslandOverlay island;
+    private int lastNotifyId;
+
+    /**
+     * App 內模擬行走接近危險路口時呼叫：跳出系統通知＋靈動島＋震動（語音由 App 自己播）。
+     * 參數：id、name、level、meters、accidents、tip。沒有通知權限時會先詢問。
+     */
+    @PluginMethod
+    public void walkAlert(PluginCall call) {
+        if (needNotif()) {
+            requestPermissionForAlias("notifications", call, "notifyCallback");
+            return;
+        }
+        sendNotify(call);
+    }
+
+    @PermissionCallback
+    private void notifyCallback(PluginCall call) {
+        if (needNotif()) call.reject("需要通知權限", "NO_NOTIFICATION");
+        else sendNotify(call);
+    }
+
+    private void sendNotify(PluginCall call) {
+        if (island == null) island = new IslandOverlay(getContext());
+        String level = call.getString("level", "low");
+        String levelText = "high".equals(level) ? "高風險" : "medium".equals(level) ? "中風險" : "注意";
+        String name = call.getString("name", "危險路口");
+        int meters = call.getInt("meters", 0);
+        int accidents = call.getInt("accidents", 0);
+        String text = name + "・約 " + meters + " 公尺・歷史事故 " + accidents + " 件";
+        lastNotifyId = GuardianService.postAlert(getContext(), island, lastNotifyId, call.getInt("id", 0),
+                "⚠ 前方危險路口・" + levelText, text, text + "\n" + call.getString("tip", "請減速並注意左右來車"), level,
+                "前方危險路口・" + levelText, name + "・" + meters + " 公尺・事故 " + accidents + " 件");
+        JSObject r = new JSObject();
+        r.put("overlay", IslandOverlay.allowed(getContext()));
+        call.resolve(r);
+    }
+
+    /**
+     * 導航護航：打開 Google 地圖導航到終點（mode：foot→步行、bike→機車、car→開車）。
+     * 沒裝 Google 地圖時改用一般地圖連結，讓系統選擇地圖 App。
+     */
+    @PluginMethod
+    public void openNavigation(PluginCall call) {
+        Double lat = call.getDouble("lat"), lon = call.getDouble("lon");
+        if (lat == null || lon == null) { call.reject("缺少終點座標"); return; }
+        String m = call.getString("mode", "car");
+        String gm = "foot".equals(m) ? "w" : "bike".equals(m) ? "l" : "d"; // l＝兩輪機車
+        Intent i = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("google.navigation:q=" + lat + "," + lon + "&mode=" + gm));
+        i.setPackage("com.google.android.apps.maps");
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        JSObject r = new JSObject();
+        try {
+            getContext().startActivity(i);
+            r.put("app", "google");
+        } catch (android.content.ActivityNotFoundException e) {
+            Intent g = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("geo:" + lat + "," + lon + "?q=" + lat + "," + lon));
+            g.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try { getContext().startActivity(g); r.put("app", "other"); }
+            catch (android.content.ActivityNotFoundException e2) { call.reject("手機上沒有地圖 App"); return; }
+        }
         call.resolve(r);
     }
 

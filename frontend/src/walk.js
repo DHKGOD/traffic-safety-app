@@ -1,7 +1,9 @@
 // 模擬行走：藍點沿目前路線移動，接近危險路口時「語音＋提示音＋紅框」提醒
 // （平板常沒有 GPS 與震動，所以用模擬位置與畫面、聲音提醒）
+import { App as CapApp } from '@capacitor/app'
 import { TextToSpeech } from '@capacitor-community/text-to-speech'
 import { isNative } from './api.js'
+import { guardianState, handoffWalk, takeBackWalk, walkAlert } from './guardian.js'
 import { icon } from './icons.js'
 import { L, walkerIcon } from './map-utils.js'
 import { $, LEVEL, el, esc, fmt, haptic, segmented } from './ui.js'
@@ -108,8 +110,9 @@ export function startWalk({ map, hotspots, route: ROUTE, onOpenReport, onStop })
   function showAlert(h) {
     haptic(300)
     beep()
-    const top = h.name
-    speak(`注意，前方約${Math.round(h.__ahead)}公尺是危險路口，${top}，歷史事故${h.filtered_count}件，請減速並注意左右來車`)
+    const tip = ROUTE.mode === 'car' ? '請減速，注意轉彎車與機車' : ROUTE.mode === 'bike' ? '請減速，注意左右來車與開車門' : '過馬路前左右看，別低頭看手機'
+    walkAlert(h, h.__ahead, tip) // App 版：同時跳出系統通知＋靈動島（和背景守護一樣）
+    speak(`注意，前方約${Math.round(h.__ahead)}公尺是危險路口，${h.name}，歷史事故${h.filtered_count}件，${tip}`)
     frame?.remove()
     frame = document.body.appendChild(el('<div class="alert-frame"></div>'))
     const box = $('.walk-alert', panel)
@@ -173,7 +176,49 @@ export function startWalk({ map, hotspots, route: ROUTE, onOpenReport, onStop })
     if (w === 'open') onOpenReport?.(e.target.closest('[data-w]').__h)
   })
 
+  /* ---------- 切到背景（按主畫面鍵、開 Google 地圖）：交給原生服務繼續模擬並跳通知 ---------- */
+  let handoff = null      // { base: 交出時已走的距離 }
+  let handing = null      // 交接中的 Promise（避免切換太快時順序錯亂）
+  const listeners = []
+  async function onBackground() {
+    if (!playing || dist >= total || handoff || guardianState.running) return // 已有實際守護在跑就不搶
+    const base = dist
+    const rest = [positionAt(ROUTE.points, cum, base), ...ROUTE.points.filter((_, i) => cum[i] > base)]
+    if (rest.length < 2) return
+    handoff = { base }
+    handing = handoffWalk({
+      points: rest, speed: BASE_MPS * speed, mode: ROUTE.mode,
+      hotspots: hotspots.filter((h) => h.along_m >= base - 10), skip: [...alerted],
+    }).catch(() => { handoff = null })
+    await handing
+  }
+  async function onForeground() {
+    if (!handoff) return
+    await handing
+    const h = handoff
+    handoff = null
+    if (!h) return
+    let moved = null
+    try { moved = await takeBackWalk() } catch { moved = 0 }
+    dist = moved === null ? total : Math.min(total, h.base + moved)
+    hotspots.forEach((x) => { if (x.along_m < dist) alerted.add(x.id) }) // 背景已經提醒過
+    last = performance.now()
+    if (dist >= total) {
+      marker.setLatLng(ROUTE.points.at(-1))
+      $('.walk-next', panel).textContent = `已抵達 ${ROUTE.end.name}`
+      $('.walk-prog', panel).style.width = '100%'
+      playing = false
+      $('[data-w="toggle"]', panel).innerHTML = icon('refresh')
+    }
+  }
+  if (isNative()) {
+    CapApp.addListener('pause', onBackground).then((l) => listeners.push(l)).catch(() => {})
+    CapApp.addListener('resume', onForeground).then((l) => listeners.push(l)).catch(() => {})
+  }
+
   function stop() {
+    listeners.forEach((l) => l.remove())
+    if (handoff) { handoff = null; takeBackWalk().catch(() => {}) }
     panel.remove()
     frame?.remove()
     map.removeLayer(marker)

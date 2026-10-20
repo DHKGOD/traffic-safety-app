@@ -116,6 +116,21 @@ def top(city: str | None = None, district: str | None = None, weather: Weather =
     return {"count": len(rows), "hotspots": rows, "disclaimer": DISCLAIMER}
 
 
+@router.get("/areas", summary="有危險路口的縣市與行政區（排行「自訂」地區選單）")
+def areas() -> list[dict[str, Any]]:
+    sql = """SELECT city, district, count(*) AS hotspots FROM hotspot
+             WHERE city IS NOT NULL AND district IS NOT NULL
+             GROUP BY city, district ORDER BY city, hotspots DESC"""
+    with db.conn() as c:
+        rows = c.execute(sql).fetchall()
+    out: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        city = out.setdefault(r["city"], {"city": r["city"], "hotspots": 0, "districts": []})
+        city["hotspots"] += r["hotspots"]
+        city["districts"].append({"district": r["district"], "hotspots": r["hotspots"]})
+    return sorted(out.values(), key=lambda c: -c["hotspots"])
+
+
 def _dist(c, sql: str, hid: int) -> list[dict[str, Any]]:
     return c.execute(sql, {"id": hid}).fetchall()
 

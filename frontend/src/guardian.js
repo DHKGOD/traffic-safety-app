@@ -43,9 +43,9 @@ export async function initGuardian() {
 }
 
 /** 開始守護。simulate 為路線座標時，服務會沿路線模擬移動（展示用，平板沒有 GPS 也能用）。 */
-export async function startGuardian({ simulate, simSpeed } = {}) {
+export async function startGuardian({ simulate, simSpeed, mode } = {}) {
   if (!isNative()) throw new Error('背景守護需要安裝 Android App')
-  const opts = { server: getServer(), mode: guardianMode(), elder: elderMode() }
+  const opts = { server: getServer(), mode: mode || guardianMode(), elder: elderMode() }
   if (simulate) Object.assign(opts, { simulate, simSpeed: simSpeed || 6 })
   const r = await Native.start(opts)
   apply({ ...guardianState, ...r, simulating: !!simulate })
@@ -55,6 +55,47 @@ export async function startGuardian({ simulate, simSpeed } = {}) {
 export async function stopGuardian() {
   if (!isNative()) return
   apply(await Native.stop())
+}
+
+/** App 內模擬行走接近危險路口：跳出系統通知＋靈動島＋震動（網頁版沒有，略過）。 */
+export async function walkAlert(h, meters, tip) {
+  if (!isNative()) return
+  try {
+    await Native.walkAlert({ id: h.id, name: h.name, level: h.level, meters: Math.round(meters / 10) * 10,
+      accidents: h.filtered_count ?? h.accident_count ?? 0, tip })
+  } catch { /* 沒有通知權限時仍有 App 內紅框與語音 */ }
+}
+
+/**
+ * App 切到背景時，把模擬行走交給原生服務繼續（WebView 在背景會暫停）。
+ * points：剩下的路線；hotspots：路線上還沒經過的危險路口；skip：已提醒過的編號。
+ */
+export async function handoffWalk({ points, speed, mode, hotspots, skip }) {
+  if (!isNative()) return false
+  await Native.start({
+    server: getServer(), mode, elder: elderMode(), source: 'walk', simulate: points, simSpeed: speed,
+    simHotspots: hotspots.map((h) => ({ id: h.id, name: h.name, lat: h.lat, lon: h.lon, level: h.level, accident_count: h.filtered_count })),
+    simSkip: skip,
+  })
+  return true
+}
+
+/** App 回到前景：取回背景模擬的進度並停止服務。回傳背景走了幾公尺；服務已走完（自動結束）時回傳 null。 */
+export async function takeBackWalk() {
+  if (!isNative()) return 0
+  const s = await Native.status()
+  if (!s.running || s.source !== 'walk') return null
+  await stopGuardian()
+  return s.simDist || 0
+}
+
+/** 導航護航：打開 Google 地圖導航到 dest（{lat, lon}），mode：foot / bike / car。 */
+export async function openNavigation(dest, mode) {
+  if (!isNative()) {
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest.lat},${dest.lon}&travelmode=${mode === 'foot' ? 'walking' : mode === 'bike' ? 'two-wheeler' : 'driving'}`, '_blank')
+    return { app: 'web' }
+  }
+  return Native.openNavigation({ lat: dest.lat, lon: dest.lon, mode })
 }
 
 export async function testGuardianAlert() {

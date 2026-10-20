@@ -94,6 +94,9 @@ public class GuardianEngine {
         return best;
     }
 
+    /** 標記為已提醒（App 內模擬行走交給背景服務時，已提醒過的路口不再重複）。 */
+    public synchronized void markAlerted(int id, long now) { lastAlertAt.put(id, now); }
+
     /** 最近的危險路口（狀態列顯示用）。 */
     public synchronized Object[] nearest(double lat, double lon) {
         Hotspot best = null;

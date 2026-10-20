@@ -84,15 +84,28 @@ public class GuardianService extends Service {
     private boolean highAccuracy;
     private int lastAlertId;
     private IslandOverlay island;
+    private EscortBubble bubble;   // 導航護航浮動小圖示（有懸浮權限時常駐）
     private boolean elder;
 
     // 模擬（展示用）：沿路線移動
+    static final long SIM_TICK_MS = 500;   // 半秒前進一次，快速模擬時也不會跳過路口的提醒範圍
     private List<double[]> simRoute;
     private double simSpeed = 1.4, simDist;
     private double[] simCum;
     private Runnable simTick;
+    private String source = "guardian";    // guardian：背景守護；walk：App 內模擬行走切到背景時接手
+    private boolean fixedHotspots;          // 使用 App 傳來的路線危險路口，不向伺服器下載
 
     public static boolean isRunning() { return instance != null; }
+
+    /** App 是否在前景（外掛在 Activity onResume/onPause 時通知）。前景時藏起浮動小圖示。 */
+    static volatile boolean appVisible = true;
+
+    static void setAppVisible(boolean visible) {
+        appVisible = visible;
+        GuardianService s = instance;
+        if (s != null && s.bubble != null) s.bubble.setHidden(visible);
+    }
 
     @Override
     public void onCreate() {
@@ -100,6 +113,8 @@ public class GuardianService extends Service {
         instance = this;
         createChannels(this);
         island = new IslandOverlay(this);
+        bubble = new EscortBubble(this);
+        bubble.setHidden(appVisible);
         fused = LocationServices.getFusedLocationProviderClient(this);
         tts = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
@@ -129,6 +144,8 @@ public class GuardianService extends Service {
             String sim = intent.getStringExtra("simulate");
             simSpeed = intent.getDoubleExtra("simSpeed", 1.4);
             sp.edit().putString("server", server).putString("mode", engine.getUserMode()).putBoolean("elder", elder).apply();
+            source = intent.getStringExtra("source") != null ? intent.getStringExtra("source") : "guardian";
+            applyFixedHotspots(intent.getStringExtra("simHotspots"), intent.getStringExtra("simSkip"));
             stopSimulation();
             if (sim != null && !sim.isEmpty()) startSimulation(sim);
             else startLocationUpdates(false);
@@ -147,6 +164,7 @@ public class GuardianService extends Service {
         engine.setRadiusScale(elder ? 1.3 : 1.0);
         if (tts != null) tts.setSpeechRate(elder ? 0.85f : 1.0f);
         sp.edit().putBoolean("simulating", simRoute != null).apply();
+        bubble.show();
         publish();
         return START_STICKY;
     }
@@ -155,6 +173,7 @@ public class GuardianService extends Service {
     public void onDestroy() {
         stopSimulation();
         if (island != null) island.removeNow();
+        if (bubble != null) bubble.remove();
         if (callback != null) fused.removeLocationUpdates(callback);
         if (tts != null) tts.shutdown();
         io.shutdownNow();
@@ -229,7 +248,7 @@ public class GuardianService extends Service {
             simDist = 0;
             simTick = new Runnable() {
                 @Override public void run() {
-                    simDist += simSpeed;
+                    simDist += simSpeed * SIM_TICK_MS / 1000.0;
                     double total = simCum[simCum.length - 1];
                     if (simDist >= total) {
                         double[] end = simRoute.get(simRoute.size() - 1);
@@ -240,7 +259,7 @@ public class GuardianService extends Service {
                     }
                     double[] p = positionAt(simDist);
                     onPosition(p[0], p[1], simSpeed);
-                    main.postDelayed(this, 1000);
+                    main.postDelayed(this, SIM_TICK_MS);
                 }
             };
             main.post(simTick);
@@ -267,8 +286,32 @@ public class GuardianService extends Service {
 
     // ---------------------------------------------------------------- 危險路口資料（伺服器＋快取）
 
+    /** App 內模擬行走交給背景時：用同一組路線危險路口，已提醒過的不再提醒。 */
+    private void applyFixedHotspots(String json, String skipJson) {
+        boolean was = fixedHotspots;
+        fixedHotspots = false;
+        if (json != null && !json.isEmpty()) {
+            try {
+                engine.setHotspots(parse(new JSONArray(json)));
+                fixedHotspots = true;
+                if (skipJson != null) {
+                    JSONArray skip = new JSONArray(skipJson);
+                    long now = System.currentTimeMillis();
+                    for (int i = 0; i < skip.length(); i++) engine.markAlerted(skip.getInt(i), now);
+                }
+                return;
+            } catch (Exception e) {
+                Log.w(TAG, "路線危險路口格式錯誤，改用伺服器資料", e);
+            }
+        }
+        if (was) { // 從模擬行走切回一般守護：恢復快取並重新下載附近路口
+            loadLat = Double.NaN;
+            loadCache();
+        }
+    }
+
     private void maybeReload(double lat, double lon) {
-        if (loading || server.isEmpty()) return;
+        if (loading || server.isEmpty() || fixedHotspots) return;
         boolean far = Double.isNaN(loadLat) || GuardianEngine.distance(lat, lon, loadLat, loadLon) > RELOAD_KM * 1000;
         if (!far && engine.size() > 0) return;
         loading = true;
@@ -325,14 +368,27 @@ public class GuardianService extends Service {
         String text = h.name + "・約 " + meters + " 公尺・歷史事故 " + h.accidents + " 件";
         String tip = "car".equals(a.mode) ? "請減速，注意轉彎車與機車" : "bike".equals(a.mode) ? "請減速，注意左右來車與開車門" : "過馬路前左右看，別低頭看手機";
         lastAlertText = h.name + "（" + meters + " m）";
-        // 有靈動島時由它負責畫面提醒，系統通知改為靜音紀錄（避免兩個提醒互相遮擋）；震動由 App 自己發出
-        boolean useIsland = IslandOverlay.allowed(this);
-        if (useIsland) vibrate();
-        NotificationCompat.Builder b = new NotificationCompat.Builder(this, useIsland ? CH_HISTORY : CH_ALERT)
+        lastAlertId = postAlert(this, island, lastAlertId, h.id, title, text, text + "\n" + tip, h.level,
+                "前方危險路口・" + level, h.name + "・" + meters + " 公尺・事故 " + h.accidents + " 件");
+        bubble.alert(meters, h.level);
+        speak("注意，前方約" + meters + "公尺，" + h.name.replace("/", "與") + "路口，事故多發，" + tip);
+        publish();
+    }
+
+    /**
+     * 跳出危險路口提醒（背景守護與 App 內模擬行走共用）：系統通知＋靈動島＋震動。
+     * 有靈動島時由它負責畫面提醒，系統通知改為靜音紀錄（避免兩個提醒互相遮擋）；震動由 App 自己發出。
+     * 回傳這次使用的通知編號（下次提醒時先取消它）。
+     */
+    static int postAlert(Context ctx, IslandOverlay island, int prevId, int hotspotId, String title, String text,
+                         String bigText, String level, String islandTitle, String islandSub) {
+        boolean useIsland = IslandOverlay.allowed(ctx);
+        if (useIsland) vibrate(ctx);
+        NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, useIsland ? CH_HISTORY : CH_ALERT)
                 .setSmallIcon(R.drawable.ic_stat_guardian)
                 .setContentTitle(title)
                 .setContentText(text)
-                .setStyle(new NotificationCompat.BigTextStyle().bigText(text + "\n" + tip + "\n依官方歷史事故統計提醒注意，不保證路況安全"))
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(bigText + "\n依官方歷史事故統計提醒注意，不保證路況安全"))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
                 .setColor(0xFFFF3B30)
@@ -340,31 +396,30 @@ public class GuardianService extends Service {
                 .setAutoCancel(true)
                 .setTimeoutAfter(20000)
                 // 指定獨立群組：避免被系統和常駐通知自動合併（合併後會降成低重要性、不會彈出橫幅）
-                .setGroup("guardian_alert_" + h.id)
+                .setGroup("guardian_alert_" + hotspotId)
                 .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_ALL)
-                .setContentIntent(openApp());
+                .setContentIntent(openApp(ctx));
+        int id = ID_ALERT + 1 + Math.floorMod(hotspotId, 5000); // 每個路口用不同編號，才會被當成新的提醒彈出
         try {
-            NotificationManagerCompat nm = NotificationManagerCompat.from(this);
-            if (lastAlertId != 0) nm.cancel(lastAlertId);
-            lastAlertId = ID_ALERT + 1 + (h.id % 5000); // 每個路口用不同編號，才會被當成新的提醒彈出
-            nm.notify(lastAlertId, b.build());
+            NotificationManagerCompat nm = NotificationManagerCompat.from(ctx);
+            if (prevId != 0) nm.cancel(prevId);
+            nm.notify(id, b.build());
         } catch (SecurityException e) {
             Log.w(TAG, "沒有通知權限", e);
         }
         // 靈動島懸浮提醒（有「顯示在其他應用程式上層」權限時）
-        int color = "high".equals(h.level) ? 0xFFFF3B30 : "medium".equals(h.level) ? 0xFFFF9500 : 0xFFF5B800;
-        island.show("前方危險路口・" + level, h.name + "・" + meters + " 公尺・事故 " + h.accidents + " 件", color, 7000);
-        speak("注意，前方約" + meters + "公尺，" + h.name.replace("/", "與") + "路口，事故多發，" + tip);
-        publish();
+        int color = "high".equals(level) ? 0xFFFF3B30 : "medium".equals(level) ? 0xFFFF9500 : 0xFFF5B800;
+        island.show(islandTitle, islandSub, color, 7000);
+        return id;
     }
 
     @SuppressWarnings("deprecation")
-    private void vibrate() {
+    private static void vibrate(Context ctx) {
         long[] pattern = {0, 350, 150, 350};
         try {
             android.os.Vibrator v = Build.VERSION.SDK_INT >= 31
-                    ? ((android.os.VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE)).getDefaultVibrator()
-                    : (android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                    ? ((android.os.VibratorManager) ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE)).getDefaultVibrator()
+                    : (android.os.Vibrator) ctx.getSystemService(Context.VIBRATOR_SERVICE);
             if (v == null || !v.hasVibrator()) return; // 平板常沒有震動馬達
             if (Build.VERSION.SDK_INT >= 26) {
                 v.vibrate(android.os.VibrationEffect.createWaveform(pattern, -1));
@@ -388,10 +443,13 @@ public class GuardianService extends Service {
         String mode = engine.effectiveMode(speed);
         String modeText = "transit".equals(mode) ? "搭乘大眾運輸（暫停提醒）" : "car".equals(mode) ? "開車" : "bike".equals(mode) ? "騎車" : "步行";
         Object[] nb = engine.nearest(lat, lon);
+        if (nb == null) bubble.update(-1, "low");
+        else bubble.update((int) Math.round((double) nb[1]), ((GuardianEngine.Hotspot) nb[0]).level);
         String body = nb == null ? "附近沒有危險路口資料" :
                 "最近：" + ((GuardianEngine.Hotspot) nb[0]).name + "（" + Math.round((double) nb[1]) + " 公尺）";
         try {
-            NotificationManagerCompat.from(this).notify(ID_STATUS, statusNotification("守護中・" + modeText + (simRoute != null ? "（展示模擬）" : ""), body));
+            String head = "walk".equals(source) ? "模擬" + modeText + "中（背景執行）" : "守護中・" + modeText + (simRoute != null ? "（展示模擬）" : "");
+            NotificationManagerCompat.from(this).notify(ID_STATUS, statusNotification(head, body));
         } catch (SecurityException ignored) { }
         publish();
     }
@@ -407,20 +465,21 @@ public class GuardianService extends Service {
                 .setGroup("guardian_status")
                 .setColor(0xFF0A84FF)
                 .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-                .setContentIntent(openApp())
+                .setContentIntent(openApp(this))
                 .build();
     }
 
-    private PendingIntent openApp() {
-        Intent i = new Intent(this, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        return PendingIntent.getActivity(this, 0, i, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    static PendingIntent openApp(Context ctx) {
+        Intent i = new Intent(ctx, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        return PendingIntent.getActivity(ctx, 0, i, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
     JSONObject status() {
         JSONObject o = new JSONObject();
         try {
             o.put("running", true).put("mode", engine.getUserMode()).put("simulating", simRoute != null)
-                    .put("hotspots", engine.size()).put("lastAlert", lastAlertText);
+                    .put("hotspots", engine.size()).put("lastAlert", lastAlertText).put("source", source);
+            if (simRoute != null) o.put("simDist", simDist); // App 回到前景時，模擬行走從這裡接續
             if (!Double.isNaN(lastLat)) {
                 o.put("lat", lastLat).put("lon", lastLon);
                 Object[] nb = engine.nearest(lastLat, lastLon);

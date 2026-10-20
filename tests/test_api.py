@@ -77,6 +77,19 @@ def test_route_hotspots_ordered_along_route(client):
     assert all(h["distance_to_route_m"] <= 150 for h in r["hotspots"])
 
 
+def test_areas_for_custom_ranking(client):
+    """排行「自訂」地區選單：縣市依路口數排序，行政區加總要等於縣市總數，且能用來查排行。"""
+    areas = client.get("/api/hotspots/areas").json()
+    assert len(areas) >= 15
+    assert [a["hotspots"] for a in areas] == sorted((a["hotspots"] for a in areas), reverse=True)
+    for a in areas:
+        assert sum(d["hotspots"] for d in a["districts"]) == a["hotspots"]
+    ntp = next(a for a in areas if a["city"] == "新北市")
+    assert any(d["district"] == "新莊區" for d in ntp["districts"])
+    top = client.get("/api/hotspots/top", params={"city": "台北市", "district": "中正區", "limit": 5}).json()
+    assert top["count"] > 0 and all(h["city"] == "臺北市" and h["district"] == "中正區" for h in top["hotspots"])
+
+
 def test_report(client):
     hid = client.get("/api/hotspots/top", params={"limit": 1}).json()["hotspots"][0]["id"]
     rep = client.get(f"/api/hotspots/{hid}/report").json()

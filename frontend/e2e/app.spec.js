@@ -290,17 +290,83 @@ test('另一台裝置的回報會即時出現在地圖與通知', async ({ page,
   await expect(page.locator('[data-tab="feed"] .badge')).toHaveCount(0)
 })
 
-test('排行：新莊區／全國切換、開報告', async ({ page }) => {
-  await openApp(page)
+test('排行：附近（GPS 目前位置）／全國、開報告', async ({ page }) => {
+  await openApp(page) // 測試環境的定位是台北車站（playwright.config）
   await page.locator('[data-tab="rank"]').click()
   const list = page.locator('[data-root="rank"] .rank-list .hs-cell')
   await expect(list.first()).toBeVisible()
-  await expect(page.locator('[data-root="rank"] .cell-sub').first()).toContainText('新莊區')
+  await expect(page.locator('.rank-head')).toContainText('目前位置 2 公里內')
+  await expect(page.locator('[data-root="rank"] .cell-sub').first()).toContainText(/中正區|大同區|萬華區|中山區/)
+  await expect(page.locator('[data-root="rank"] .cell-sub').first()).toContainText(/公尺|公里/)
   await page.locator('[data-root="rank"] .segmented button', { hasText: '全國' }).click()
   await expect(page.locator('.rank-head')).toContainText('全國')
   await expect(list.first()).toBeVisible()
   await list.first().click()
   await expect(page.locator('[data-root="rank"] .report-hero')).toBeVisible()
+})
+
+test('排行：自訂地區（選縣市→行政區，重開仍保留）', async ({ page }) => {
+  await openApp(page)
+  await page.locator('[data-tab="rank"]').click()
+  await page.locator('[data-root="rank"] .segmented button', { hasText: '自訂' }).click()
+  await page.locator('.modal [data-city]', { hasText: '臺中市' }).click()
+  await page.locator('.modal [data-dist]', { hasText: '西屯區' }).click()
+  await expect(page.locator('.modal')).toHaveCount(0)
+  await expect(page.locator('.rank-head')).toContainText('臺中市西屯區')
+  await expect(page.locator('[data-root="rank"] .rank-list .hs-cell').first()).toBeVisible()
+  await page.reload()
+  await page.locator('[data-tab="rank"]').click()
+  await expect(page.locator('[data-root="rank"] .segmented button.active')).toHaveText('自訂')
+  await expect(page.locator('.rank-head')).toContainText('臺中市西屯區')
+  // 更改地區：整個縣市
+  await page.locator('[data-change]').click()
+  await page.locator('.modal [data-pick-city]').click()
+  await expect(page.locator('.rank-head')).toContainText(/^臺中市・/)
+})
+
+test('排行：搜尋地區與地點、設為自訂、清除搜尋', async ({ page }) => {
+  await openApp(page)
+  await page.locator('[data-tab="rank"]').click()
+  await page.locator('.rank-search').click()
+  await page.locator('.rs-in').fill('板橋')
+  await page.locator('.modal [data-area]', { hasText: '新北市板橋區' }).click()
+  await expect(page.locator('.rank-head')).toContainText('新北市板橋區')
+  await expect(page.locator('.rank-search')).toContainText('新北市板橋區')
+  await page.locator('[data-pin]').click()
+  await expect(page.locator('[data-root="rank"] .segmented button.active')).toHaveText('自訂')
+  await expect(page.locator('.rank-head')).toContainText('新北市板橋區')
+  await expect(page.locator('.rank-search')).toContainText('搜尋地區或地點')
+  // 地點搜尋（OpenStreetMap）：顯示該地點 2 公里內
+  await page.locator('.rank-search').click()
+  await page.locator('.rs-in').fill('台中車站')
+  const place = page.locator('.modal [data-place]').first()
+  await expect(place).toBeVisible({ timeout: 20_000 })
+  await place.click()
+  await expect(page.locator('.rank-head')).toContainText('2 公里內')
+  await page.locator('[data-clear]').click()
+  await expect(page.locator('.rank-head')).toContainText('新北市板橋區')
+})
+
+test('地圖抽屜：點把手收到最小只剩標題列、往下拖也能收起', async ({ page }) => {
+  await openApp(page)
+  const sheet = page.locator('.sheet')
+  const peekTop = (await sheet.boundingBox()).y
+  await page.locator('.sheet-grabber').click()
+  await expect(sheet).toHaveClass(/mini/)
+  await page.waitForTimeout(600)
+  const miniTop = (await sheet.boundingBox()).y
+  expect(miniTop).toBeGreaterThan(peekTop + 100)
+  await expect(page.locator('.head-count')).toHaveText(/\d+/)
+  await page.locator('.sheet-grabber').click()
+  await expect(sheet).not.toHaveClass(/mini/)
+  // 從清單上往下拖（以前會被清單捲動吃掉）
+  await page.waitForTimeout(600)
+  const b = await page.locator('.summary-row').boundingBox()
+  await page.mouse.move(b.x + 20, b.y + 10)
+  await page.mouse.down()
+  for (let i = 1; i <= 8; i++) await page.mouse.move(b.x + 20, b.y + 10 + i * 30)
+  await page.mouse.up()
+  await expect(sheet).toHaveClass(/mini/)
 })
 
 test('設定：測試連線、錯誤位址、後台筆數與資料表關係', async ({ page }) => {
