@@ -268,7 +268,8 @@ export function settingsView({ openAdmin, openFamily, devWalk }) {
   renderPerms()
   async function dev(kind) {
     const r = state.route
-    const sim = { simulate: r.points, simSpeed: r.mode === 'car' ? 14 : r.mode === 'bike' ? 6 : 4, mode: r.mode }
+    // 開發測試用：比實際快約 3 倍，幾十秒內就會經過第一個危險路口
+    const sim = { simulate: r.points, simSpeed: r.mode === 'car' ? 28 : r.mode === 'bike' ? 15 : 12, mode: r.mode }
     try {
       if (kind === 'walk') {
         const v = await actionSheet({ title: '模擬行走速度', message: `路線：${r.start.name} → ${r.end.name}`, value: '10',
