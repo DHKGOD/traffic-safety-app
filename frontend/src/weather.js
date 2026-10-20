@@ -2,7 +2,7 @@
 import { Geolocation } from '@capacitor/geolocation'
 import { api } from './api.js'
 import { icon } from './icons.js'
-import { emit, on, setMode, state } from './store.js'
+import { emit, on, routeOrDemo, setMode, state } from './store.js'
 import { actionSheet, toast } from './ui.js'
 
 const REFRESH_MS = 10 * 60 * 1000 // 氣象署每 10 分鐘更新
@@ -23,7 +23,7 @@ async function position() {
     const p = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 5000, maximumAge: 5 * 60 * 1000 })
     return { lat: p.coords.latitude, lon: p.coords.longitude, from: 'gps' }
   } catch {
-    const s = state.route.start // 沒有定位（平板、網頁）→ 用路線起點
+    const s = routeOrDemo().start // 沒有定位（平板、網頁）→ 用路線起點（探索模式用 Demo 起點）
     return { lat: s.lat, lon: s.lon, from: 'route' }
   }
 }

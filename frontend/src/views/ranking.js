@@ -2,7 +2,7 @@
 import { Geolocation } from '@capacitor/geolocation'
 import { api } from '../api.js'
 import { icon } from '../icons.js'
-import { PERIOD_HINT, PERIOD_OPTS, WEATHER_OPTS, on, setMode, state } from '../store.js'
+import { PERIOD_HINT, PERIOD_OPTS, WEATHER_OPTS, on, routeOrDemo, setMode, state } from '../store.js'
 import { $, LEVEL, actionSheet, disclaimer, emptyState, esc, fmt, makePage, modal, segmented, skeletonList } from '../ui.js'
 import { pickWeather, renderWeatherChip } from '../weather.js'
 import { L, createMap, meIcon } from '../map-utils.js'
@@ -36,7 +36,7 @@ async function myPosition() {
     const p = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 0 })
     return { lat: p.coords.latitude, lon: p.coords.longitude, gps: true }
   } catch {
-    const s = state.route.start
+    const s = routeOrDemo().start
     return { lat: s.lat, lon: s.lon, gps: false, name: s.name }
   }
 }

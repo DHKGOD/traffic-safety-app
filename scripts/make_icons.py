@@ -3,7 +3,7 @@
     uv run python scripts/make_icons.py
     cd frontend && npx capacitor-assets generate --android
 
-設計：紅色漸層（#ff6b5f → #ff3b30 → #d70015）＋白色圓角警示三角形與驚嘆號，與 App 內圖示一致。
+設計：綠底（#226B4E）＋白色盾牌外框＋透視道路（使用者提供的圖示，重畫成向量比例以便各尺寸清晰）。
 """
 from __future__ import annotations
 
@@ -16,41 +16,62 @@ OUT = ROOT / "frontend" / "assets"
 S = 1024
 
 
+GREEN = (34, 107, 78)  # #226B4E，使用者提供的圖示底色
+
+
 def gradient(size: int) -> Image.Image:
-    img = Image.new("RGB", (size, size))
-    px = img.load()
-    stops = [(0.0, (255, 107, 95)), (0.5, (255, 59, 48)), (1.0, (215, 0, 21))]
-    for y in range(size):
-        for x in range(size):
-            t = (x * 0.35 + y * 0.65) / size  # 斜向漸層
-            for (t0, c0), (t1, c1) in zip(stops, stops[1:]):
-                if t <= t1:
-                    k = (t - t0) / (t1 - t0)
-                    px[x, y] = tuple(round(a + (b - a) * k) for a, b in zip(c0, c1))
-                    break
-            else:
-                px[x, y] = stops[-1][1]
-    return img
+    """底色：使用者提供的綠色（純色，與參考圖一致）。"""
+    return Image.new("RGB", (size, size), GREEN)
+
+
+def _quad(p0, p1, p2, n=40):
+    return [((1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0],
+             (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]) for t in (i / n for i in range(n + 1))]
+
+
+def _cubic(p0, p1, p2, p3, n=60):
+    return [((1 - t) ** 3 * p0[0] + 3 * (1 - t) ** 2 * t * p1[0] + 3 * (1 - t) * t * t * p2[0] + t ** 3 * p3[0],
+             (1 - t) ** 3 * p0[1] + 3 * (1 - t) ** 2 * t * p1[1] + 3 * (1 - t) * t * t * p2[1] + t ** 3 * p3[1])
+            for t in (i / n for i in range(n + 1))]
 
 
 def glyph(size: int, scale: float = 0.62) -> Image.Image:
-    """白色圓角三角形＋紅色驚嘆號（透明背景）。"""
+    """白色盾牌外框＋透視道路（兩側路緣、三段中線），依使用者提供的圖示比例重畫成可縮放的圖形。
+
+    原圖座標以 1254 為邊長：盾牌寬約 820（占 0.65），scale 是盾牌寬占圖示邊長的比例。
+    """
     big = size * 4  # 超取樣讓邊緣平滑
     im = Image.new("RGBA", (big, big), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    w = big * scale
-    cx, cy = big / 2, big / 2 + big * 0.02
-    h = w * 0.88
-    tri = [(cx, cy - h / 2), (cx + w / 2, cy + h / 2), (cx - w / 2, cy + h / 2)]
-    d.polygon(tri, fill=(255, 255, 255, 255))
-    r = big * 0.035  # 圓角：在三個角畫圓並用描邊加粗
-    d.line(tri + [tri[0]], fill=(255, 255, 255, 255), width=int(r * 2), joint="curve")
-    for x, y in tri:
-        d.ellipse([x - r, y - r, x + r, y + r], fill=(255, 255, 255, 255))
-    red = (230, 30, 30, 255)
-    bw = w * 0.085
-    d.rounded_rectangle([cx - bw / 2, cy - h * 0.16, cx + bw / 2, cy + h * 0.2], radius=bw / 2, fill=red)
-    d.ellipse([cx - bw * 0.62, cy + h * 0.27, cx + bw * 0.62, cy + h * 0.27 + bw * 1.24], fill=red)
+    k = big * scale / 820          # 原圖 1 單位 → 畫布像素
+    ox = big / 2 - 627 * k          # 以原圖中心 (627, 616) 對齊畫布中心
+    oy = big / 2 - 616 * k
+    P = lambda x, y: (ox + x * k, oy + y * k)
+    white = (255, 255, 255, 255)
+    # 盾牌外框（描邊的中線），左半邊再鏡射
+    left = (_quad(P(627, 187), P(470, 262), P(262, 292))
+            + _quad(P(262, 292), P(246, 296), P(246, 335))
+            + _cubic(P(246, 335), P(246, 760), P(430, 930), P(627, 1047)))
+    right = [(big - x, y) for x, y in reversed(left)]
+    outline = left + right[1:]
+    w = 64 * k
+    # 描邊：沿路徑密集蓋圓形筆刷（Pillow 粗線的接角會出現毛邊），邊緣才會平滑
+    pts = outline + [outline[0]]
+    step = w / 8
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        n = max(1, int(((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5 / step))
+        for i in range(n + 1):
+            x, y = x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n
+            d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=white)
+    # 道路兩側路緣（細長梯形）與中線三段
+    for poly in (
+        [(540, 383), (565, 383), (424, 833), (377, 767)],
+        [(688, 383), (713, 383), (876, 767), (830, 833)],
+        [(614, 408), (640, 408), (646, 470), (608, 470)],
+        [(607, 517), (650, 517), (656, 610), (598, 610)],
+        [(596, 675), (661, 675), (668, 803), (584, 803)],
+    ):
+        d.polygon([P(x, y) for x, y in poly], fill=white)
     return im.resize((size, size), Image.LANCZOS)
 
 
@@ -60,7 +81,7 @@ def main() -> None:
     # 1. 完整圖示（舊版 Android、Play 用）：圓角方形（iOS 風格曲率）
     icon = bg.copy().convert("RGBA")
     shadow = glyph(S, 0.6).split()[3].filter(ImageFilter.GaussianBlur(18))
-    dark = Image.new("RGBA", (S, S), (120, 0, 0, 90))
+    dark = Image.new("RGBA", (S, S), (0, 40, 25, 70))
     icon.paste(dark, (0, 14), shadow)
     icon.alpha_composite(glyph(S, 0.6))
     mask = Image.new("L", (S, S), 0)

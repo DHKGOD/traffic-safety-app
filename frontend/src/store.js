@@ -9,11 +9,16 @@ export const DEMO = { ...DEMO_ROUTE, mode: 'foot', demo: true }
 
 function loadRoute() {
   try {
-    const r = JSON.parse(localStorage.getItem('route') || 'null')
+    const raw = localStorage.getItem('route')
+    if (raw === 'none') return null // 探索模式：沒有路線，自由瀏覽地圖上的危險路口
+    const r = JSON.parse(raw || 'null')
     if (r?.points?.length >= 2 && r.start && r.end) return r
   } catch { /* 格式不對就用 Demo */ }
   return DEMO
 }
+
+/** 需要一個位置或路線、但目前是探索模式（沒有路線）時，用 Demo 路線代替。 */
+export const routeOrDemo = () => state.route || DEMO
 
 export const state = {
   route: loadRoute(),   // { name, start:{name,lat,lon}, end, points:[[lat,lon]], distance_m, duration_s, mode, demo }
@@ -33,10 +38,12 @@ export function emit(type, payload) {
   listeners.forEach((fn) => fn(type, payload))
 }
 
+/** 設定路線；傳 null 進入探索模式（沒有目的地，看地圖範圍內的危險路口）。 */
 export function setRoute(route) {
   state.route = route
   try {
-    if (route.demo) localStorage.removeItem('route')
+    if (!route) localStorage.setItem('route', 'none')
+    else if (route.demo) localStorage.removeItem('route')
     else localStorage.setItem('route', JSON.stringify(route))
   } catch { /* 儲存失敗不影響使用 */ }
   emit('route', route)

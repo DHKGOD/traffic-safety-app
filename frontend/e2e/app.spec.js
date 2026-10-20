@@ -168,23 +168,26 @@ test('AI 情境預測：切換情境會重新預測並記錄模型版本', async
   await first.click()
   const card = page.locator('.ai-card')
   await expect(card).toBeVisible()
-  await expect(card.locator('.hbar-label')).toHaveCount(5)
-  const id1 = Number((await card.locator('.legend').textContent()).match(/#(\d+)/)[1])
-  const top1 = await card.locator('.hbar-label span').first().textContent()
-  // 改成「雨天」「65 歲以上」
+  // 精簡版：只有「交通工具」「天候」兩個選項、結果只列前 3 名、不顯示模型說明
+  await expect(card.locator('[data-ai]')).toHaveCount(2)
+  await expect(card.locator('.ai-top')).toHaveCount(1)
+  await expect(card.locator('.ai-row')).toHaveCount(2)
+  await expect(card).not.toContainText('模型')
+  const id1 = Number(await card.getAttribute('data-pid'))
+  const top1 = await card.locator('.ai-top .ai-cause').textContent()
+  // 改成「雨天」「開汽車」
   await card.locator('[data-ai="weather"]').click()
   await page.locator('.as-btn', { hasText: '雨天' }).click()
   await expect(page.locator('.ai-card [data-ai="weather"]')).toContainText('雨天')
-  await page.locator('.ai-card [data-ai="age"]').click()
-  await page.locator('.as-btn', { hasText: '65 歲以上' }).click()
-  await expect(page.locator('.ai-card [data-ai="age"]')).toContainText('65 歲以上')
-  const legend = await page.locator('.ai-card .legend').textContent()
-  const id2 = Number(legend.match(/#(\d+)/)[1])
+  await page.locator('.ai-card [data-ai="vehicle"]').click()
+  await page.locator('.as-btn', { hasText: '開汽車' }).click()
+  await expect(page.locator('.ai-card [data-ai="vehicle"]')).toContainText('開汽車')
+  const id2 = Number(await page.locator('.ai-card').getAttribute('data-pid'))
   expect(id2).toBeGreaterThan(id1)
-  // 從 API 回查這筆預測用的是哪一版模型、輸入了什麼情境
+  // 從 API 回查這筆預測用的是哪一版模型、輸入了什麼情境（畫面不顯示，但資料庫有記錄）
   const rec = await (await request.get(`/api/ai/predictions/${id2}`)).json()
   expect(rec.model_name).toBe('cause_scenario')
-  expect(rec.input.scenario).toMatchObject({ weather: 'rain', age: 'senior' })
+  expect(rec.input.scenario).toMatchObject({ weather: 'rain', vehicle: 'car' })
   expect(top1).toBeTruthy()
 })
 
@@ -199,7 +202,13 @@ test('規劃路線：目前位置（台北車站）→ 搜尋「苗栗車站」�
   await expect(modal.locator('.results [data-k="result"]').first()).toBeVisible({ timeout: 20_000 })
   await modal.locator('.results [data-k="result"]').first().click()
   await expect(modal.locator('.in-to')).toHaveValue(/苗栗/)
-  await modal.locator('.segmented button', { hasText: '汽機車' }).click()
+  // 交通方式預設「自動」：台北到苗栗超過 2 公里 → 汽機車（不用再自己選）
+  await expect(modal.locator('.mode-pick')).toContainText('自動（汽機車）')
+  // 也可以手動改：打開選單看得到四個選項，取消不改變
+  await modal.locator('.mode-pick').click()
+  await expect(page.locator('.as-btn', { hasText: '步行' })).toBeVisible()
+  await page.locator('.as-cancel').click()
+  await expect(modal.locator('.mode-pick')).toContainText('自動（汽機車）')
   await modal.locator('.go').click()
   await expect(modal).toHaveCount(0, { timeout: 45_000 })
   await expect(page.locator('.route-q')).toContainText('苗栗')
@@ -216,6 +225,37 @@ test('規劃路線：目前位置（台北車站）→ 搜尋「苗栗車站」�
   await page.locator('[data-act="demo"]').click()
   await expect(page.locator('.route-q')).toContainText('輔仁大學')
   await expect(page.locator('[data-act="demo"]')).toBeHidden()
+})
+
+test('探索模式：清除路線後看地圖範圍內的危險路口，移動地圖會重新查詢', async ({ page }) => {
+  await openApp(page)
+  await page.locator('.ap-clear').click()
+  await expect(page.locator('.route-q')).toContainText('搜尋地點或規劃路線')
+  await expect(page.locator('.sec-list')).toHaveText('地圖範圍內的危險路口')
+  await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(0) // 路線線條清掉了
+  await expect(page.locator('.hs-list .hs-cell').first()).toBeVisible()
+  await expect(page.locator('.hs-list .cell-sub').first()).toContainText('區') // 顯示行政區，不是「距起點」
+  // 拖動地圖 → 用新的中心重新查詢
+  const nearReq = page.waitForRequest((r) => r.url().includes('/api/hotspots/near'), { timeout: 15_000 })
+  const box = await page.locator('#map').boundingBox()
+  await page.mouse.move(box.x + box.width / 2, box.y + 150)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 - 160, box.y + 230, { steps: 8 })
+  await page.mouse.up()
+  await nearReq
+  // 重新整理仍是探索模式
+  await page.reload()
+  await expect(page.locator('.route-q')).toContainText('搜尋地點或規劃路線')
+  // 沒有路線不能模擬行走 → 提示並打開規劃路線
+  await page.locator('[data-act="walk"]').click()
+  await expect(page.locator('.toast', { hasText: '先規劃路線' })).toBeVisible()
+  await expect(page.locator('.modal')).toBeVisible()
+  await page.locator('.modal [data-close]').click()
+  // 「…」→ Demo 路線
+  await page.locator('[data-act="more"]').click()
+  await page.locator('.as-btn', { hasText: 'Demo 路線' }).click()
+  await expect(page.locator('.route-q')).toContainText('輔仁大學')
+  await expect(page.locator('.sec-list')).toHaveText('路線上的危險路口')
 })
 
 test('規劃路線：交換起訖點、取消不改變路線', async ({ page }) => {
@@ -536,7 +576,8 @@ test('家人模式：分享代碼 → 用代碼下載 → 長輩模式', async (
   const first = page.locator('.hs-list .hs-cell').first()
   await first.click()
   await first.click()
-  await expect(page.locator('.ai-card [data-ai="age"]')).toContainText('65 歲以上')
+  await expect(page.locator('.ai-card')).toHaveAttribute('data-age', 'senior')
+  await expect(page.locator('.ai-card .ai-tag')).toHaveText('長輩')
   // 錯誤代碼
   await page.locator('[data-tab="settings"]').click()
   await root.locator('[data-family]').click()

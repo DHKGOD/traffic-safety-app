@@ -101,12 +101,20 @@ def ensure_frontend() -> None:
         print("⚠ 前端建置失敗；API 仍可使用。")
 
 
+def step(text: str) -> None:
+    """步驟標題：每一步開始前先印出來，畫面才不會長時間空白像當掉（使用者回饋）。"""
+    print(text, flush=True)
+
+
 def start() -> None:
+    step("[2/4] 設定檔與資料庫…")
     py("setup_env.py")
     ensure_database()
+    step("[3/4] 網頁前端…")
     ensure_frontend()
     port = env("API_PORT", "8000")
     host = env("API_HOST", "0.0.0.0")
+    step("[4/4] 啟動 API（最多 30 秒）…")
     if api_pid():
         print("API 已在執行中。")
     else:
@@ -139,7 +147,7 @@ def start() -> None:
             raise SystemExit("API 30 秒內沒有回應，請看 logs/api.log")
     public = env("PUBLIC_API_BASE", "")
     print("\n" + "=" * 60)
-    print("  伺服器已啟動（資料庫＋API）")
+    print("  ✅ 完成！伺服器已啟動（資料庫＋API），這個視窗可以關掉，伺服器會繼續執行")
     print(f"  本機瀏覽器：http://127.0.0.1:{port}/")
     for ip in lan_ips():
         print(f"  手機／平板（同一個 Wi-Fi）請在 App 設定頁輸入：http://{ip}:{port}")

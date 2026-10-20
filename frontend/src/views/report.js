@@ -154,9 +154,10 @@ export function reportView(h, { back = '地圖' } = {}) {
     age: { title: '年齡', options: [{ value: 'young', label: '18–24 歲' }, { value: 'adult', label: '25–44 歲' }, { value: 'middle', label: '45–64 歲' }, { value: 'senior', label: '65 歲以上（長輩）' }] },
   }
   const scenario = { weather: 'all', period: 'all', vehicle: 'scooter', age: elderMode() ? 'senior' : 'adult' } // 長輩模式預設 65 歲以上
+  const AI_SHOWN = ['vehicle', 'weather'] // 畫面上只給這兩個選項；時段用路口常見時段，年齡跟長輩模式
   const short = (k) => {
     const o = AI_OPTS[k].options.find((x) => x.value === scenario[k])
-    return k === 'weather' && scenario[k] === 'all' ? '常見天候' : k === 'period' && scenario[k] === 'all' ? '常見時段' : o.label.replace(/（.*）/, '')
+    return k === 'weather' && scenario[k] === 'all' ? '常見天候' : k === 'period' && scenario[k] === 'all' ? '常見時段' : o.label.replace(/（.*）/, '').replace(' 6–9 點', '')
   }
 
   async function loadAi() {
@@ -166,17 +167,24 @@ export function reportView(h, { back = '地圖' } = {}) {
       const q = new URLSearchParams(scenario)
       const ai = await api(`/api/ai/hotspots/${h.id}/causes?${q}`)
       if (!ai?.predictions?.length) return
-      const m = ai.model
+      // 精簡版（使用者回饋）：只有「交通工具」「天候」兩個選項、結果只列前 3 名、不顯示模型細節。
+      // 每次預測仍寫入 prediction 表（含模型版本），編號放在 data-pid 供回查，不顯示在畫面上。
+      const top = ai.predictions.slice(0, 3)
+      const pct = (x) => `${Math.round(x.probability * 100)}%`
       slot.innerHTML = `
-        <div class="chart-card ai-card">
-          <h4><span style="color:var(--purple)">${icon('sparkles')}</span>AI 情境預測</h4>
-          <div class="hint">如果你在這個路口……最可能因為什麼發生事故？</div>
-          <div class="chips" style="margin:12px -16px 0;padding:0 16px">
-            ${Object.keys(AI_OPTS).map((k) => `<button class="chip${(k === 'weather' || k === 'period') && scenario[k] === 'all' ? '' : ' on'}" data-ai="${k}" style="${(k === 'weather' || k === 'period') && scenario[k] === 'all' ? '' : 'background:var(--purple)'}">${esc(short(k))}<span class="caret">${icon('chevronDown')}</span></button>`).join('')}
+        <div class="chart-card ai-card" data-pid="${ai.prediction_id}" data-age="${esc(scenario.age)}">
+          <h4><span style="color:var(--purple)">${icon('sparkles')}</span>AI 預測：最可能的事故原因</h4>
+          <div class="chips ai-chips">
+            ${AI_SHOWN.map((k) => `<button class="chip on" data-ai="${k}">${esc(short(k))}<span class="caret">${icon('chevronDown')}</span></button>`).join('')}
+            ${scenario.age === 'senior' ? '<span class="ai-tag">長輩</span>' : ''}
           </div>
-          ${hbars(ai.predictions.map((x) => ({ name: x.cause, n: Math.round(x.probability * 100) })), (k) => (k === 0 ? 'var(--purple)' : 'color-mix(in srgb, var(--purple) 45%, transparent)'), 100).replace(/<span class="num">(\d+)<span class="c-3"[^>]*>[^<]*<\/span><\/span>/g, '<span class="num">$1%</span>')}
-          ${ai.predictions[0].tip ? `<div class="advice-item" style="padding-bottom:2px"><span style="color:var(--purple)">${icon('lightbulb')}</span><span><b>最該注意：</b>${esc(ai.predictions[0].tip)}</span></div>` : ''}
-          <div class="legend" style="margin-top:10px;line-height:1.5"><span>${icon('info')}模型：${esc({ hist_gradient_boosting: '梯度提升決策樹', logistic_regression: '邏輯迴歸' }[m.algorithm] || m.algorithm)}（v${esc(m.version)}），以 ${esc(m.test_range)} 測試：前 3 名猜中率 ${fmt.pct(m.metrics.top3_accuracy)}（基準 ${fmt.pct(m.baseline.top3_accuracy)}）、macro-F1 ${m.metrics.macro_f1.toFixed(2)}（基準 ${m.baseline.macro_f1.toFixed(2)}）。預測編號 #${ai.prediction_id}</span></div>
+          <div class="ai-top">
+            <span class="ai-rank">1</span>
+            <span class="ai-top-main"><b class="ai-cause">${esc(top[0].cause)}</b>${top[0].tip ? `<span class="ai-tip">${esc(top[0].tip)}</span>` : ''}</span>
+            <span class="ai-pct">${pct(top[0])}</span>
+          </div>
+          ${top.slice(1).map((x, i) => `
+            <div class="ai-row"><span class="ai-rank sm">${i + 2}</span><span class="ai-cause">${esc(x.cause)}</span><span class="ai-pct sm">${pct(x)}</span></div>`).join('')}
         </div>`
     } catch { /* 尚未有模型：不顯示 */ }
   }

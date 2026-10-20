@@ -60,9 +60,9 @@ export function mapView({ openReport, openSubmit, startWalk }) {
         <div class="sheet-grabber"></div>
         <div class="sheet-body">
           <button class="search-field ap-search" data-act="plan">
-            ${icon('search')}<span class="q route-q"></span><span class="ap-mode"></span>
+            ${icon('search')}<span class="q route-q"></span><span class="ap-mode"></span><span class="ap-clear" data-act="explore" role="button" aria-label="清除路線，自由瀏覽">${icon('xmark')}</span>
           </button>
-          <div class="ap-sec">路線摘要</div>
+          <div class="ap-sec sec-sum">路線摘要</div>
           <div class="ap-card">
             <span class="ap-card-ic">${icon('warningFill')}</span>
             <span class="ap-card-main">
@@ -79,7 +79,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
             <button data-act="report"><span class="qi" style="background:var(--purple)">${icon('plus')}</span><b>回報</b><small>差點被撞</small></button>
             <button data-act="period"><span class="qi" style="background:var(--orange)">${icon('clock')}</span><b>時段</b><small class="q-period">全天</small></button>
           </div>
-          <div class="ap-sec sheet-head">路線上的危險路口<span class="head-count"></span><button class="link-btn" data-act="demo" hidden>回到 Demo 路線</button></div>
+          <div class="ap-sec sheet-head"><span class="sec-list">路線上的危險路口</span><span class="head-count"></span><button class="link-btn" data-act="demo" hidden>回到 Demo 路線</button></div>
           <div class="hs-list">${skeletonList(5)}</div>
           ${disclaimer()}
         </div>
@@ -92,17 +92,27 @@ export function mapView({ openReport, openSubmit, startWalk }) {
   let hotspots = []
   let selected = null
   let loadSeq = 0
+  let skipMove = false // 探索模式：點選路口造成的地圖移動不重新查詢
   const markers = new Map()
 
   /* ---------- 底部抽屜上方：路線與模式 ---------- */
   function renderHeader() {
     const r = state.route
-    $('.route-q', page).innerHTML = `${esc(r.start.name)} → ${esc(r.end.name)}`
-    $('.ap-mode', page).innerHTML = `${icon(MODE_ICON[r.mode] || 'walk')}${fmt.dist(r.distance_m)}`
+    page.classList.toggle('exploring', !r)
+    if (r) {
+      $('.route-q', page).innerHTML = `${esc(r.start.name)} → ${esc(r.end.name)}`
+      $('.ap-mode', page).innerHTML = `${icon(MODE_ICON[r.mode] || 'walk')}${fmt.dist(r.distance_m)}`
+    } else {
+      $('.route-q', page).innerHTML = '<span class="c-2">搜尋地點或規劃路線</span>'
+      $('.ap-mode', page).innerHTML = ''
+    }
+    $('.sec-sum', page).textContent = r ? '路線摘要' : '這個範圍'
+    $('.sec-list', page).textContent = r ? '路線上的危險路口' : '地圖範圍內的危險路口'
+    $('.q-walk', page).textContent = r ? '沿路線' : '需要路線'
     renderWeatherPill()
     $('.q-period', page).textContent = PERIOD_HINT[state.period]
     $('[data-act="period"] .qi', page).innerHTML = icon(state.period === 'night' ? 'moon' : 'clock')
-    $('[data-act="demo"]', page).hidden = !!r.demo
+    $('[data-act="demo"]', page).hidden = !r || !!r.demo
   }
 
   /* 左上天氣膠囊（Apple 地圖風格）：氣溫＋天氣；篩選模式不是「全部」時多一個標籤 */
@@ -129,6 +139,16 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     map.on('zoomend', zoomClass)
     zoomClass()
     drawRouteLayer(false)
+    // 探索模式：移動或縮放地圖後，重新載入範圍內的危險路口（停下來 0.4 秒後才查，避免一直發請求）
+    let moveTimer = 0
+    map.on('moveend', () => {
+      if (state.route || page.classList.contains('walking')) return
+      const c = map.getCenter()
+      try { localStorage.setItem('exploreView', JSON.stringify({ lat: c.lat, lon: c.lng, zoom: map.getZoom() })) } catch { /* 不影響 */ }
+      if (skipMove) { skipMove = false; return } // 點選路口時地圖移過去，不要重新整理清單
+      clearTimeout(moveTimer)
+      moveTimer = setTimeout(load, 400)
+    })
     // 長按地圖 → 在該位置回報
     map.on('contextmenu', (e) => { haptic(15); openSubmit({ lat: e.latlng.lat, lon: e.latlng.lng }) })
     load()
@@ -139,6 +159,17 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     const r = state.route
     routeLayer?.remove()
     pinsLayer?.remove()
+    routeLayer = pinsLayer = null
+    if (!r) {
+      // 探索模式：地圖停在原處；剛打開 App 還沒有視野時，回到上次瀏覽的位置（沒有就用 Demo 起點附近）
+      if (!map._loaded) {
+        let v = null
+        try { v = JSON.parse(localStorage.getItem('exploreView') || 'null') } catch { /* 用預設 */ }
+        if (v?.lat && v?.lon) map.setView([v.lat, v.lon], v.zoom || 15, { animate: false })
+        else map.setView([DEMO.start.lat, DEMO.start.lon], 15, { animate: false })
+      }
+      return
+    }
     routeLayer = drawRoute(map, r.points)
     pinsLayer = L.layerGroup([
       L.marker([r.start.lat, r.start.lon], { icon: pinIcon('start'), zIndexOffset: 500, interactive: false }),
@@ -157,7 +188,15 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     const pad = matchMedia(WIDE).matches
       ? { paddingTopLeft: [440, 60], paddingBottomRight: [80, 60] }
       : { paddingTopLeft: [30, 76], paddingBottomRight: [74, bottom] }
-    map.fitBounds(routeLayer.getBounds(), { ...pad, animate, maxZoom: 17 })
+    if (routeLayer) map.fitBounds(routeLayer.getBounds(), { ...pad, animate, maxZoom: 17 })
+  }
+
+  /** 探索模式查詢範圍：地圖中心、到角落的距離（最多 5 公里）；太遠時不查，請使用者放大。 */
+  const EXPLORE_MIN_ZOOM = 12.5
+  function exploreQuery() {
+    const c = map.getCenter()
+    const radius = Math.round(Math.min(5000, Math.max(300, map.distance(c, map.getBounds().getNorthEast()))))
+    return { lat: c.lat, lon: c.lng, radius, tooFar: map.getZoom() < EXPLORE_MIN_ZOOM }
   }
 
   /* ---------- 載入沿途危險路口 ---------- */
@@ -167,12 +206,27 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     $('.hs-list', page).innerHTML = skeletonList(5)
     try {
       const r = state.route
-      const filtered = state.weather !== 'all' || state.period !== 'all'
-      const res = await api('/api/hotspots/route', {
-        method: 'POST',
-        timeout: 30000,
-        body: { points: r.points, buffer_m: BUFFER[r.mode] || 70, weather: state.weather, period: state.period, min_accidents: filtered ? 1 : 3 },
-      })
+      let res
+      if (r) {
+        const filtered = state.weather !== 'all' || state.period !== 'all'
+        res = await api('/api/hotspots/route', {
+          method: 'POST',
+          timeout: 30000,
+          body: { points: r.points, buffer_m: BUFFER[r.mode] || 70, weather: state.weather, period: state.period, min_accidents: filtered ? 1 : 3 },
+        })
+      } else {
+        // 探索模式：地圖範圍內事故最多的路口（最多 120 處，避免標記太密）
+        if (!map) return
+        const q = exploreQuery()
+        if (q.tooFar) {
+          hotspots = []
+          drawHotspots()
+          $('.hs-list', page).innerHTML = emptyState('search', '放大地圖看危險路口', '範圍太大時不顯示，拉近到街區就會出現')
+          return
+        }
+        const qs = new URLSearchParams({ lat: q.lat.toFixed(5), lon: q.lon.toFixed(5), radius: q.radius, weather: state.weather, period: state.period, limit: 120 })
+        res = await api(`/api/hotspots/near?${qs}`, { timeout: 30000 })
+      }
       if (my !== loadSeq) return // 已有較新的請求
       hotspots = res.hotspots.map((h, i) => ({ ...h, rank: i + 1 }))
       emit('route-hotspots', hotspots)
@@ -214,7 +268,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
   function renderList() {
     const list = $('.hs-list', page)
     if (!hotspots.length) {
-      list.innerHTML = emptyState('checkCircle', '這個模式下沒有危險路口', '換個天候或時段看看')
+      list.innerHTML = state.route ? emptyState('checkCircle', '這個模式下沒有危險路口', '換個天候或時段看看') : emptyState('checkCircle', '這個範圍沒有危險路口', '移動地圖看看其他地方')
       return
     }
     list.innerHTML = `<div class="list">${hotspots.map((h) => `
@@ -222,7 +276,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
         <span class="rank ${h.level}">${h.rank}</span>
         <span class="cell-main">
           <span class="cell-title" style="display:block">${esc(h.name)}</span>
-          <span class="cell-sub" style="display:block">${LEVEL[h.level].label}・距起點 ${fmt.dist(h.along_m)}</span>
+          <span class="cell-sub" style="display:block">${LEVEL[h.level].label}・${state.route ? `距起點 ${fmt.dist(h.along_m)}` : esc(h.district || '')}</span>
         </span>
         <span class="hs-count"><span class="num">${h.filtered_count}</span><small>件事故</small></span>
         <span class="chev">${icon('chevronRight')}</span>
@@ -243,15 +297,22 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     if (act === 'plan') return openPlanner()
     if (act === 'guardian') return guardianMenu()
     if (act === 'demo') return setRoute(DEMO)
+    if (act === 'explore') { setRoute(null); toast('已清除路線：移動地圖看範圍內的危險路口', { icon: 'map', color: 'var(--blue)', ms: 3000 }); return }
     if (act === 'weather') return pickWeather()
     if (act === 'more') {
-      const v = await actionSheet({ title: `${state.route.start.name} → ${state.route.end.name}`, options: [
+      const r = state.route
+      const v = await actionSheet({ title: r ? `${r.start.name} → ${r.end.name}` : '探索模式', options: r ? [
         { value: 'plan', label: '更改路線', icon: 'route' },
         { value: 'fit', label: '顯示整條路線', icon: 'map' },
-        ...(state.route.demo ? [] : [{ value: 'demo', label: '回到 Demo 路線', icon: 'refresh' }]),
+        { value: 'explore', label: '清除路線，自由瀏覽', icon: 'xmark' },
+        ...(r.demo ? [] : [{ value: 'demo', label: '回到 Demo 路線', icon: 'refresh' }]),
+      ] : [
+        { value: 'plan', label: '規劃路線', icon: 'route' },
+        { value: 'demo', label: 'Demo 路線（輔大 → 新莊捷運站）', icon: 'refresh' },
       ] })
       if (v === 'plan') openPlanner()
       if (v === 'fit' && map) fitRoute()
+      if (v === 'explore') setRoute(null)
       if (v === 'demo') setRoute(DEMO)
       return
     }
@@ -263,9 +324,10 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     }
     if (!map) return
     if (act === 'locate') locate()
-    if (act === 'fit') fitRoute()
+    if (act === 'fit') { if (state.route) fitRoute(); else locate() }
     if (act === 'report') { const c = map.getCenter(); openSubmit({ lat: c.lat, lon: c.lng }) }
     if (act === 'walk' && !document.querySelector('.walk-panel')) {
+      if (!state.route) { toast('先規劃路線，才能沿路線模擬行走', { icon: 'walk', color: 'var(--blue)' }); return openPlanner() }
       beginWalk()
     }
   })
@@ -279,6 +341,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
       if (top > 120 && top < size.y) visibleBottom = top
     }
     const dy = size.y / 2 - visibleBottom / 2 // 往下推移中心，讓點出現在可見範圍中間
+    if (!state.route) skipMove = true
     const target = map.unproject(map.project(ll, zoom).add([0, dy]), zoom)
     map.flyTo(target, zoom, { duration: 0.6 })
   }
@@ -332,10 +395,13 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     const v = await actionSheet({
       title: '背景守護模式',
       message: '開啟後可以切到 Google 地圖或其他 App：畫面邊緣會有護航小圖示，接近危險路口時跳出提醒、語音與震動',
-      options: [
+      // 探索模式沒有路線：只能用 GPS 守護（導航護航與展示模擬都需要路線）
+      options: state.route ? [
         { value: 'nav', label: `導航護航（開 Google 地圖到${state.route.end.name}）`, icon: 'route' },
         { value: 'gps', label: '開始守護（使用 GPS）', icon: 'shield' },
         { value: 'sim', label: '展示：沿目前路線模擬', icon: 'play' },
+      ] : [
+        { value: 'gps', label: '開始守護（使用 GPS）', icon: 'shield' },
       ],
     })
     if (!v) return
@@ -391,7 +457,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
         .addTo(repLayer)
     })
     // 「附近回報」：路線範圍內的回報數
-    const b = routeLayer?.getBounds().pad(0.05)
+    const b = routeLayer ? routeLayer.getBounds().pad(0.05) : map?.getBounds() // 探索模式：地圖範圍內
     $('.s-rep', page).textContent = b ? state.reports.filter((r) => b.contains([r.lat, r.lon])).length : '–'
   }
 

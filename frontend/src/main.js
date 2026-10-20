@@ -124,7 +124,7 @@ function onboarding() {
   const o = el(`
     <div class="page" style="z-index:300;position:fixed;overflow-y:auto">
       <div class="onboard">
-        <div class="app-icon">${icon('warningFill')}</div>
+        <div class="app-icon">${icon('brand')}</div>
         <div class="t-large-title">有路安</div>
         <div class="t-body c-2" style="margin-top:8px">用官方事故資料，提醒你注意危險路口</div>
         <div class="feature">${icon('map')}<div><div class="t-headline">路線上的危險路口</div><div class="t-subhead c-2">晴天、雨天、不同時段，各有不同的危險路口</div></div></div>

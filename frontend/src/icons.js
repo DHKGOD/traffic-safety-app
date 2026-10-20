@@ -1,5 +1,7 @@
 // SF Symbols 風格的線條圖示（自繪 SVG，無外部字型）
 const P = {
+  // App 圖示（盾牌＋道路，與 scripts/make_icons.py 同一組比例）
+  brand: '<path stroke-width="1.45" d="M12 2.6Q8.6 4.25 4 4.9Q3.64 5 3.64 5.83C3.64 15.16 7.68 18.9 12 21.46C16.32 18.9 20.36 15.16 20.36 5.83Q20.36 5 20 4.9Q15.4 4.25 12 2.6Z"/><g fill="currentColor" stroke="none"><path d="M10.09 6.89h.54L7.54 16.76 6.51 15.31Z"/><path d="M13.37 6.89h.54l3.58 8.42-1.03 1.45Z"/><path d="M11.71 7.43h.58l.13 1.36h-.84Z"/><path d="M11.56 9.83h.94l.14 2.04h-1.28Z"/><path d="M11.32 13.3h1.43l.15 2.8h-1.84Z"/></g>',
   map: '<path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4Z"/><path d="M9 4v14M15 6v14"/>',
   mapFill: '<path fill="currentColor" stroke="none" d="M8.3 3.2a1 1 0 0 1 .7 0l6 2 4.9-1.7A1 1 0 0 1 21.2 4.5v13.5a1 1 0 0 1-.7.9l-5.2 1.9a1 1 0 0 1-.7 0l-6-2-4.9 1.7A1 1 0 0 1 2.8 19.5V6a1 1 0 0 1 .7-.9l4.8-1.9ZM9.6 5.4v12l4.8 1.6v-12L9.6 5.4Z"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1" fill="currentColor"/><circle cx="3.5" cy="12" r="1" fill="currentColor"/><circle cx="3.5" cy="18" r="1" fill="currentColor"/>',

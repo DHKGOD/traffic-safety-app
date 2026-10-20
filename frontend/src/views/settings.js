@@ -1,7 +1,7 @@
 // 設定：伺服器位址（換雲端不必重新打包）、外觀、後台、關於
 import { api, deviceId, getServer, isNative, normalize, setServer } from '../api.js'
 import { icon } from '../icons.js'
-import { emit, startPolling, state } from '../store.js'
+import { DEMO, emit, setRoute, startPolling, state } from '../store.js'
 import { $, DISCLAIMER, actionSheet, esc, fmt, makePage, segmented, toast, toastError } from '../ui.js'
 import {
   GUARDIAN_MODES, guardianAvailable, guardianMode, guardianPermissions, guardianState, openNavigation, overlayAllowed,
@@ -173,7 +173,7 @@ export function settingsView({ openAdmin, openFamily, devWalk }) {
 
     <div class="section">
       <div class="app-icon-hero">
-        <div class="app-icon">${icon('warningFill')}</div>
+        <div class="app-icon">${icon('brand')}</div>
         <div class="t-headline">有路安</div>
         <div class="t-footnote c-2">版本 0.1.0（${isNative() ? 'Android App' : '網頁版'}）</div>
       </div>
@@ -268,7 +268,9 @@ export function settingsView({ openAdmin, openFamily, devWalk }) {
   }
   renderPerms()
   async function dev(kind) {
-    const r = state.route
+    // 探索模式沒有路線：模擬需要路線，先切回 Demo 路線
+    if (!state.route && kind !== 'stop') setRoute(DEMO)
+    const r = state.route || DEMO
     // 開發測試用：比實際快約 3 倍，幾十秒內就會經過第一個危險路口
     const sim = { simulate: r.points, simSpeed: r.mode === 'car' ? 28 : r.mode === 'bike' ? 15 : 12, mode: r.mode }
     try {

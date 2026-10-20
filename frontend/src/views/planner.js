@@ -1,11 +1,21 @@
-// 規劃路線：起點（目前位置或搜尋）、終點（搜尋）、交通方式；類似 Apple 地圖的路線面板
+// 規劃路線：起點（目前位置或搜尋）、終點（搜尋）；交通方式預設依距離自動決定（可改）；類似 Apple 地圖的路線面板
 import { Geolocation } from '@capacitor/geolocation'
 import { api } from '../api.js'
 import { icon } from '../icons.js'
 import { DEMO, MODE_LABEL, setRoute, state } from '../store.js'
-import { $, $$, el, esc, fmt, haptic, modal, segmented, toastError } from '../ui.js'
+import { $, $$, actionSheet, el, esc, fmt, haptic, modal, toastError } from '../ui.js'
 
 const HERE = { name: '目前位置', here: true }
+const AUTO_WALK_M = 2000 // 直線距離 2 公里內預設步行，超過預設汽機車
+
+/** 交通方式「自動」：依起訖點直線距離決定（出發前還沒有速度可判斷）。 */
+function autoMode(a, b) {
+  if (!a?.lat || !b?.lat) return 'foot'
+  const r = Math.PI / 180
+  const d = 6371000 * 2 * Math.asin(Math.sqrt(Math.sin(((b.lat - a.lat) * r) / 2) ** 2
+    + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(((b.lon - a.lon) * r) / 2) ** 2))
+  return d <= AUTO_WALK_M ? 'foot' : 'car'
+}
 
 function recent() {
   try { return JSON.parse(localStorage.getItem('recentPlaces') || '[]') } catch { return [] }
@@ -22,10 +32,10 @@ async function currentPlace() {
 }
 
 export function openPlanner() {
-  const cur = state.route
-  let from = cur.demo ? { ...HERE } : { ...cur.start }
-  let to = cur.demo ? null : { ...cur.end }
-  let mode = cur.mode || 'foot'
+  const cur = state.route // 探索模式時是 null
+  let from = !cur || cur.demo ? { ...HERE } : { ...cur.start }
+  let to = !cur || cur.demo ? null : { ...cur.end }
+  let mode = cur && !cur.demo && !cur.modeAuto ? cur.mode : 'auto' // 'auto' 或使用者手動選的方式
   let active = to ? null : 'to'
   let timer = null
   let seq = 0
@@ -43,7 +53,7 @@ export function openPlanner() {
           <input type="text" class="in-to" placeholder="要去哪裡？例如 苗栗車站" autocomplete="off" spellcheck="false">
         </div>
       </div>
-      <div class="section" style="margin-top:12px"><div class="seg-mode"></div></div>
+      <button class="mode-pick" type="button"></button>
       <div class="section results" style="margin-top:16px"></div>
       <div style="position:sticky;bottom:0;padding:14px 0 4px;background:linear-gradient(transparent, var(--bg-grouped) 30%)">
         <button class="btn btn-primary btn-block go">${icon('route')}規劃路線並找出危險路口</button>
@@ -55,14 +65,24 @@ export function openPlanner() {
   const results = $('.results', content)
   const go = $('.go', content)
 
-  $('.seg-mode', content).replaceWith(segmented(
-    [{ value: 'foot', label: '步行', icon: 'walk' }, { value: 'bike', label: '自行車', icon: 'bike' }, { value: 'car', label: '汽機車', icon: 'car' }],
-    mode, (v) => { mode = v }))
+  const MODE_ICON = { foot: 'walk', bike: 'bike', car: 'car' }
+  const resolved = () => (mode === 'auto' ? autoMode(from, to) : mode)
+  const pick = $('.mode-pick', content)
+  function renderMode() {
+    const r = resolved()
+    pick.innerHTML = `${icon(MODE_ICON[r])}交通方式：${mode === 'auto' ? `自動（${MODE_LABEL[r]}）` : MODE_LABEL[r]}<span class="caret">${icon('chevronDown')}</span>`
+  }
+  pick.addEventListener('click', async () => {
+    const v = await actionSheet({ title: '交通方式', message: '決定路線走哪些路與所需時間；「自動」依距離：2 公里內步行，超過開車／騎車', value: mode,
+      options: [{ value: 'auto', label: '自動（依距離）', icon: 'sparkles' }, { value: 'foot', label: '步行', icon: 'walk' }, { value: 'bike', label: '自行車', icon: 'bike' }, { value: 'car', label: '汽機車', icon: 'car' }] })
+    if (v) { mode = v; renderMode() }
+  })
 
   function sync() {
     inFrom.value = from?.name || ''
     inTo.value = to?.name || ''
     go.disabled = !(from && to)
+    renderMode()
   }
 
   function placeCell(p, i, kind) {
@@ -138,13 +158,14 @@ export function openPlanner() {
     go.innerHTML = '計算路線中…'
     try {
       if (from.here && from.lat == null) from = await currentPlace()
-      const r = await api(`/api/geo/route?from=${from.lat},${from.lon}&to=${to.lat},${to.lon}&mode=${mode}`, { timeout: 40000 })
+      const useMode = resolved()
+      const r = await api(`/api/geo/route?from=${from.lat},${from.lon}&to=${to.lat},${to.lon}&mode=${useMode}`, { timeout: 40000 })
       remember(from); remember(to)
       setRoute({
         name: `${from.name} → ${to.name}`,
         start: { name: from.name, lat: from.lat, lon: from.lon },
         end: { name: to.name, lat: to.lat, lon: to.lon },
-        points: r.points, distance_m: r.distance_m, duration_s: r.duration_s, mode, demo: false,
+        points: r.points, distance_m: r.distance_m, duration_s: r.duration_s, mode: useMode, modeAuto: mode === 'auto', demo: false,
       })
       m.close()
     } catch (e) {
@@ -154,6 +175,10 @@ export function openPlanner() {
     }
   })
 
+  // 起點是「目前位置」時先取得座標，交通方式「自動」才能依距離判斷
+  if (from?.here && from.lat == null) {
+    currentPlace().then((p) => { if (from?.here) { from = p; sync() } }).catch(() => { /* 沒有定位：出發時再試 */ })
+  }
   sync()
   showDefaults()
   if (active === 'to') setTimeout(() => inTo.focus(), 450)

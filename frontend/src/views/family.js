@@ -25,14 +25,19 @@ export function familyView({ goMap }) {
 
       <div class="section">
         <div class="section-header">目前路線</div>
-        <div class="list">
+        <div class="list">${r ? `
           <div class="cell" style="--sep-inset:58px">
             <span class="cell-icon" style="background:var(--blue)">${icon('route')}</span>
             <span class="cell-main"><span class="cell-title" style="display:block">${esc(r.start.name)} → ${esc(r.end.name)}</span>
             <span class="cell-sub" style="display:block">${MODE_LABEL[r.mode] || '步行'}・${fmt.dist(r.distance_m)}</span></span>
           </div>
           <button class="cell tappable" data-save style="--sep-inset:58px;color:var(--blue)">${icon('plusCircle')}<span>儲存為常用路線</span></button>
-          <button class="cell tappable" data-share style="--sep-inset:58px;color:var(--blue)">${icon('share')}<span>分享給家人（產生代碼）</span></button>
+          <button class="cell tappable" data-share style="--sep-inset:58px;color:var(--blue)">${icon('share')}<span>分享給家人（產生代碼）</span></button>` : `
+          <div class="cell" style="--sep-inset:58px">
+            <span class="cell-icon" style="background:var(--gray)">${icon('map')}</span>
+            <span class="cell-main"><span class="cell-title" style="display:block">目前沒有路線（探索模式）</span>
+            <span class="cell-sub" style="display:block">先在地圖規劃一條路線，才能儲存或分享</span></span>
+          </div>`}
         </div>
         <div class="section-footer">要換路線，回到地圖點搜尋列「規劃路線」。</div>
       </div>
