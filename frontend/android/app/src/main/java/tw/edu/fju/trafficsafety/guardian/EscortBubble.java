@@ -56,10 +56,10 @@ public class EscortBubble {
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                     PixelFormat.TRANSLUCENT);
             lp.gravity = Gravity.TOP | Gravity.START;
-            int w = ctx.getResources().getDisplayMetrics().widthPixels;
             int h = ctx.getResources().getDisplayMetrics().heightPixels;
-            lp.x = w - dp(64) - dp(8);  // 右側中間偏上，避開 Google 地圖右下角的按鈕
-            lp.y = (int) (h * 0.36);
+            // 左側中間：Google 地圖導航時右側整排都是按鈕（指南針、搜尋、聲音），實機發現會蓋到指南針
+            lp.x = dp(8);
+            lp.y = (int) (h * 0.42);
             try {
                 wm.addView(view, lp);
             } catch (Exception e) {
