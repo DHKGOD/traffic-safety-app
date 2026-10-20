@@ -132,24 +132,51 @@
 .leaflet-control-attribution a { color: var(--label-2) !important; }
 .leaflet-control-zoom { display: none; }
 .hs-marker { position: relative; display: grid; place-items: center; }
+/* Apple 地圖 POI 風格：漸層圓＋白邊＋「!」，不放數字 */
 .hs-marker .core {
-  border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  display: grid; place-items: center; color: #fff; font-weight: 700; font-family: var(--font-rounded); font-size: 12px;
+  border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  display: grid; place-items: center; color: #fff; font-weight: 800; font-family: var(--font-rounded); font-size: 13px; line-height: 1;
   transition: transform 0.25s var(--spring);
 }
-.hs-marker.high .core { background: var(--red); }
-.hs-marker.medium .core { background: var(--orange); }
-.hs-marker.low .core { background: #f5b800; }
-.hs-marker.selected .core { transform: scale(1.35); }
+.hs-marker.high .core { background: linear-gradient(170deg, #ff6b5f, #e5281c); font-size: 15px; }
+.hs-marker.medium .core { background: linear-gradient(170deg, #ffb340, #f08a00); }
+.hs-marker.low .core { background: linear-gradient(170deg, #ffd84a, #e9ac00); font-size: 11px; }
+.hs-marker.selected { z-index: 1; }
+/* 拉遠：縮成小圓點、不顯示「!」與脈動（選取的除外） */
+#map.far .hs-marker:not(.selected) .core { transform: scale(0.55); font-size: 0; border-width: 2.5px; }
+#map.far .hs-marker:not(.selected)::before { display: none; }
+.hs-marker.selected .core { transform: scale(1.45); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4); }
+.hs-label {
+  position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); white-space: nowrap;
+  font-size: 13px; font-weight: 700; color: var(--label); pointer-events: none;
+  text-shadow: 0 0 3px var(--bg), 0 0 3px var(--bg), 0 0 3px var(--bg);
+}
 .hs-marker.high::before {
-  content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--red); opacity: 0.35;
-  animation: pulse-ring 2.2s ease-out infinite;
+  content: ""; position: absolute; inset: -4px; border-radius: 50%; background: var(--red); opacity: 0.22;
+  animation: pulse-ring 2.6s ease-out infinite;
 }
-.pin {
-  width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
-  display: grid; place-items: center; border: 2.5px solid #fff; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+/* 起點：藍點白圈；終點：紅色圓形圖釘 */
+.start-dot {
+  width: 20px; height: 20px; border-radius: 50%; background: #0a84ff; border: 3.5px solid #fff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35), 0 0 0 6px rgba(10, 132, 255, 0.18);
 }
-.pin span { transform: rotate(45deg); color: #fff; font-size: 13px; font-weight: 700; }
+.end-pin {
+  width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: linear-gradient(200deg, #ff6b5f, #e5281c);
+  border: 2.5px solid #fff; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35); display: grid; place-items: center;
+}
+.end-pin span { width: 9px; height: 9px; border-radius: 50%; background: #fff; }
+/* 路線上的時間泡泡（Apple 地圖「7 分鐘」） */
+.route-bubble {
+  position: absolute; left: 0; bottom: 14px; transform: translateX(-50%); white-space: nowrap;
+  padding: 7px 13px; border-radius: 12px; background: #1d6ff2; color: #fff;
+  font-size: 15px; font-weight: 700; letter-spacing: -0.01em; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  border: 1.5px solid rgba(255, 255, 255, 0.85); pointer-events: none;
+}
+.route-bubble::after {
+  content: ""; position: absolute; left: 50%; bottom: -7px; width: 12px; height: 12px; margin-left: -6px;
+  background: #1d6ff2; transform: rotate(45deg); border-right: 1.5px solid rgba(255, 255, 255, 0.85); border-bottom: 1.5px solid rgba(255, 255, 255, 0.85);
+  border-bottom-right-radius: 3px;
+}
 .report-marker {
   width: 26px; height: 26px; border-radius: 50%; background: var(--purple); border: 2.5px solid #fff;
   display: grid; place-items: center; color: #fff; font-size: 14px; font-weight: 800; box-shadow: 0 2px 8px rgba(0,0,0,.3);

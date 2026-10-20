@@ -65,24 +65,30 @@ export function createMap(container, opts = {}) {
   return map
 }
 
+/** 危險路口標記（Apple 地圖 POI 風格）：圓形「!」圖示依風險上色，地圖上不放名次數字；選取時放大並顯示路口名稱。 */
 export function hotspotIcon(h, rank, selected = false) {
-  const size = Math.round(Math.min(34, 20 + Math.sqrt(h.filtered_count ?? h.accident_count) * 3))
+  const size = h.level === 'high' ? 26 : h.level === 'medium' ? 22 : 18
+  const label = selected ? `<span class="hs-label">${String(h.name).replace(/[<>&]/g, '')}</span>` : ''
   return L.divIcon({
     className: '',
     html: `<div class="hs-marker ${h.level}${selected ? ' selected' : ''}" style="width:${size}px;height:${size}px">
-             <div class="core" style="width:${size}px;height:${size}px">${rank ?? ''}</div></div>`,
+             <div class="core" style="width:${size}px;height:${size}px">!</div>${label}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   })
 }
 
-export function pinIcon(text, color) {
-  return L.divIcon({
-    className: '',
-    html: `<div class="pin" style="background:${color}"><span>${text}</span></div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 30],
-  })
+/** 起點（藍點白圈，像「我的位置」）與終點（紅色圓形圖釘）。 */
+export function pinIcon(kind) {
+  if (kind === 'start') {
+    return L.divIcon({ className: '', html: '<div class="start-dot"></div>', iconSize: [20, 20], iconAnchor: [10, 10] })
+  }
+  return L.divIcon({ className: '', html: '<div class="end-pin"><span></span></div>', iconSize: [30, 38], iconAnchor: [15, 36] })
+}
+
+/** 路線上的時間泡泡（Apple 地圖的「7 分鐘」）。 */
+export function routeBubble(text) {
+  return L.divIcon({ className: '', html: `<div class="route-bubble">${text}</div>`, iconSize: [0, 0], iconAnchor: [0, 0] })
 }
 
 export const reportIcon = (fresh = false) =>
@@ -91,10 +97,13 @@ export const reportIcon = (fresh = false) =>
 export const meIcon = () => L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [20, 20], iconAnchor: [10, 10] })
 export const walkerIcon = () => L.divIcon({ className: '', html: '<div class="walker"></div>', iconSize: [22, 22], iconAnchor: [11, 11] })
 
+/** 路線（Apple 地圖風格）：淡陰影＋深藍外框＋亮藍中心，比單色線更有「導航」感。 */
 export function drawRoute(map, points) {
-  const casing = L.polyline(points, { color: '#ffffff', weight: 10, opacity: 0.95, lineCap: 'round', lineJoin: 'round' })
-  const line = L.polyline(points, { color: '#0a84ff', weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round' })
-  return L.featureGroup([casing, line]).addTo(map)
+  const opt = { lineCap: 'round', lineJoin: 'round', interactive: false }
+  const shadow = L.polyline(points, { ...opt, color: '#000', weight: 17, opacity: 0.1, className: 'route-shadow' })
+  const casing = L.polyline(points, { ...opt, color: '#1d5fd1', weight: 12, opacity: 1 })
+  const line = L.polyline(points, { ...opt, color: '#4b9dff', weight: 7.5, opacity: 1 })
+  return L.featureGroup([shadow, casing, line]).addTo(map)
 }
 
 export { L }

@@ -2,7 +2,7 @@
 import { Geolocation } from '@capacitor/geolocation'
 import { api } from '../api.js'
 import { icon } from '../icons.js'
-import { L, createMap, drawRoute, hotspotIcon, meIcon, pinIcon, reportIcon } from '../map-utils.js'
+import { L, createMap, drawRoute, hotspotIcon, meIcon, pinIcon, reportIcon, routeBubble } from '../map-utils.js'
 import { DEMO, MODE_LABEL, PERIOD_HINT, PERIOD_OPTS, emit, on, setMode, setRoute, state } from '../store.js'
 import { live, pickWeather } from '../weather.js'
 import { $, $$, LEVEL, actionSheet, disclaimer, el, emptyState, esc, fmt, haptic, skeletonList, toast, toastError } from '../ui.js'
@@ -12,6 +12,30 @@ import { openPlanner } from './planner.js'
 const WIDE = '(min-width: 900px) and (orientation: landscape), (min-width: 1100px)'
 const BUFFER = { foot: 70, bike: 60, car: 45 }
 const MODE_ICON = { foot: 'walk', bike: 'bike', car: 'car' }
+const MODE_MPS = { foot: 1.25, bike: 4.5, car: 9 } // 沒有路線時間時用一般速度估算
+
+/** 路線所需時間（「28 分鐘」「1 小時 12 分」）。 */
+function routeTime(r) {
+  const s = r.duration_s || r.distance_m / (MODE_MPS[r.mode] || 1.25)
+  const m = Math.max(1, Math.round(s / 60))
+  return m < 60 ? `${m} 分鐘` : `${Math.floor(m / 60)} 小時${m % 60 ? ` ${m % 60} 分` : ''}`
+}
+
+/** 路線長度一半的位置（放時間泡泡）。 */
+function midpoint(points) {
+  const d = (a, b) => Math.hypot(a[0] - b[0], (a[1] - b[1]) * Math.cos((a[0] * Math.PI) / 180))
+  const total = points.slice(1).reduce((s, p, i) => s + d(points[i], p), 0)
+  let acc = 0
+  for (let i = 1; i < points.length; i++) {
+    const seg = d(points[i - 1], points[i])
+    if (acc + seg >= total / 2) {
+      const t = seg ? (total / 2 - acc) / seg : 0
+      return [points[i - 1][0] + (points[i][0] - points[i - 1][0]) * t, points[i - 1][1] + (points[i][1] - points[i - 1][1]) * t]
+    }
+    acc += seg
+  }
+  return points[0]
+}
 
 export function mapView({ openReport, openSubmit, startWalk }) {
   const page = el(`
@@ -98,6 +122,10 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     map = createMap(mapEl, { zoomSnap: 0.25 })
     hsLayer = L.layerGroup().addTo(map)
     repLayer = L.layerGroup().addTo(map)
+    // 地圖拉遠時危險點縮成小圓點（像 Apple 地圖），拉近才顯示完整圖示，避免擠成一團
+    const zoomClass = () => mapEl.classList.toggle('far', map.getZoom() < 15.5)
+    map.on('zoomend', zoomClass)
+    zoomClass()
     drawRouteLayer(false)
     // 長按地圖 → 在該位置回報
     map.on('contextmenu', (e) => { haptic(15); openSubmit({ lat: e.latlng.lat, lon: e.latlng.lng }) })
@@ -111,8 +139,9 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     pinsLayer?.remove()
     routeLayer = drawRoute(map, r.points)
     pinsLayer = L.layerGroup([
-      L.marker([r.start.lat, r.start.lon], { icon: pinIcon('起', 'var(--green)'), zIndexOffset: 500 }),
-      L.marker([r.end.lat, r.end.lon], { icon: pinIcon('終', 'var(--red)'), zIndexOffset: 500 }),
+      L.marker([r.start.lat, r.start.lon], { icon: pinIcon('start'), zIndexOffset: 500, interactive: false }),
+      L.marker([r.end.lat, r.end.lon], { icon: pinIcon('end'), zIndexOffset: 500, interactive: false }),
+      L.marker(midpoint(r.points), { icon: routeBubble(routeTime(r)), zIndexOffset: -200, interactive: false }),
     ]).addTo(map)
     fitRoute(animate)
   }
@@ -232,6 +261,19 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     }
   })
 
+  /** 把某個點移到「抽屜上方可見範圍」的中間（地圖正中央常被浮動抽屜蓋住）。 */
+  function focusPoint(ll, zoom) {
+    const size = map.getSize()
+    let visibleBottom = size.y
+    if (!matchMedia(WIDE).matches) {
+      const top = sheet.getBoundingClientRect().top - mapEl.getBoundingClientRect().top
+      if (top > 120 && top < size.y) visibleBottom = top
+    }
+    const dy = size.y / 2 - visibleBottom / 2 // 往下推移中心，讓點出現在可見範圍中間
+    const target = map.unproject(map.project(ll, zoom).add([0, dy]), zoom)
+    map.flyTo(target, zoom, { duration: 0.6 })
+  }
+
   /** 開始模擬行走；speed 為初始倍速（開發者選項用）。出錯時一定還原畫面，不會卡在「行走中」。 */
   function beginWalk(speed) {
     if (!map || document.querySelector('.walk-panel')) return
@@ -251,7 +293,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     if (selected) markers.get(selected.id)?.setIcon(hotspotIcon(selected, selected.rank))
     selected = h
     markers.get(h.id)?.setIcon(hotspotIcon(h, h.rank, true))
-    map.flyTo([h.lat, h.lon], Math.max(map.getZoom(), 17), { duration: 0.6 })
+    focusPoint([h.lat, h.lon], Math.max(map.getZoom(), 17))
     L.popup({ offset: [0, -10], closeButton: false, autoPan: true, autoPanPaddingTopLeft: [16, 80], autoPanPaddingBottomRight: [16, 380] })
       .setLatLng([h.lat, h.lon])
       .setContent(`<div style="min-width:170px"><div style="font-weight:600;font-size:15px">${esc(h.name)}</div>
@@ -323,7 +365,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
       const ll = [p.coords.latitude, p.coords.longitude]
       if (!meMarker) meMarker = L.marker(ll, { icon: meIcon(), zIndexOffset: 1000 }).addTo(map)
       else meMarker.setLatLng(ll)
-      map.flyTo(ll, 17)
+      focusPoint(ll, 17)
     } catch {
       toastError('無法取得定位（平板可能沒有 GPS），可改用「模擬行走」')
     }
@@ -438,7 +480,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
       if (!payload.initial && payload.fresh.length) {
         const r = payload.fresh.at(-1)
         toast(`新回報：${r.category_label}${r.hotspot_name ? '・' + r.hotspot_name : ''}`, {
-          icon: 'bubble', color: 'var(--purple)', onClick: () => map?.flyTo([r.lat, r.lon], 17),
+          icon: 'bubble', color: 'var(--purple)', onClick: () => map && focusPoint([r.lat, r.lon], 17),
         })
       }
     }
