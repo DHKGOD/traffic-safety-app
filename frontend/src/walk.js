@@ -114,7 +114,9 @@ export function startWalk({ map, hotspots, route: ROUTE, onOpenReport, onStop, s
     if (prefs.sound) beep()
     const tip = ROUTE.mode === 'car' ? '請減速，注意轉彎車與機車' : ROUTE.mode === 'bike' ? '請減速，注意左右來車與開車門' : '過馬路前左右看，別低頭看手機'
     walkAlert(h, h.__ahead, tip) // App 版：同時跳出靈動島／系統通知（依設定，和背景守護一樣）
-    if (prefs.voice) speak(`注意，前方約${Math.round(h.__ahead)}公尺是危險路口，${h.name}，歷史事故${h.filtered_count}件，${tip}`)
+    // 語音短一點：只說距離與風險等級（和背景守護一致），路名與事故數看畫面上的紅色卡片
+    const m = Math.round(h.__ahead / 10) * 10
+    if (prefs.voice) speak(`注意，前方${m}公尺，${{ high: '高風險', medium: '中風險' }[h.level] || '注意'}路口`)
     frame?.remove()
     frame = document.body.appendChild(el('<div class="alert-frame"></div>'))
     const box = $('.walk-alert', panel)

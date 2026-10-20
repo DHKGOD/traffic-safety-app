@@ -27,6 +27,7 @@ import tw.edu.fju.trafficsafety.MainActivity;
  * 需要「顯示在其他應用程式上層」權限（與靈動島相同）。
  */
 public class EscortBubble {
+    static final int SIZE = 46; // dp；使用者回饋 64 太大
     private final Context ctx;
     private final WindowManager wm;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -50,7 +51,7 @@ public class EscortBubble {
         main.post(() -> {
             if (view != null || !IslandOverlay.allowed(ctx)) return;
             view = build();
-            lp = new WindowManager.LayoutParams(dp(64), dp(64),
+            lp = new WindowManager.LayoutParams(dp(SIZE), dp(SIZE),
                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                             : WindowManager.LayoutParams.TYPE_PHONE,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
@@ -58,7 +59,7 @@ public class EscortBubble {
             lp.gravity = Gravity.TOP | Gravity.START;
             int h = ctx.getResources().getDisplayMetrics().heightPixels;
             // 左側中間：Google 地圖導航時右側整排都是按鈕（指南針、搜尋、聲音），實機發現會蓋到指南針
-            lp.x = dp(8);
+            lp.x = dp(6);
             lp.y = (int) (h * 0.42);
             try {
                 wm.addView(view, lp);
@@ -90,7 +91,7 @@ public class EscortBubble {
             label.setText("⚠\n" + meters + "m");
             bg.setColor(colorOf(level));
             if (pulse != null) pulse.cancel();
-            pulse = ObjectAnimator.ofFloat(view, "scaleX", 1f, 1.18f);
+            pulse = ObjectAnimator.ofFloat(view, "scaleX", 1f, 1.15f);
             pulse.setRepeatCount(9);
             pulse.setRepeatMode(ValueAnimator.REVERSE);
             pulse.setDuration(260);
@@ -135,14 +136,14 @@ public class EscortBubble {
         bg = new GradientDrawable();
         bg.setShape(GradientDrawable.OVAL);
         bg.setColor(0xFF0A84FF);
-        bg.setStroke(dp(3), Color.WHITE);
+        bg.setStroke(dp(2), Color.WHITE);
         root.setBackground(bg);
         root.setElevation(dp(10));
         label = new TextView(ctx);
         label.setText("護航");
         label.setTextColor(Color.WHITE);
         label.setTypeface(Typeface.DEFAULT_BOLD);
-        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         label.setGravity(Gravity.CENTER);
         label.setLineSpacing(0, 0.85f);
         root.addView(label);
@@ -177,7 +178,7 @@ public class EscortBubble {
 
     private void snapToEdge() {
         int w = ctx.getResources().getDisplayMetrics().widthPixels;
-        int target = lp.x + dp(32) < w / 2 ? dp(8) : w - dp(64) - dp(8);
+        int target = lp.x + dp(SIZE / 2) < w / 2 ? dp(6) : w - dp(SIZE) - dp(6);
         ValueAnimator a = ValueAnimator.ofInt(lp.x, target);
         a.setDuration(220);
         a.addUpdateListener(an -> {

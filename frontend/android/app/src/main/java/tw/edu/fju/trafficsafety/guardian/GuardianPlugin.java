@@ -185,15 +185,9 @@ public class GuardianPlugin extends Plugin {
 
     private void sendNotify(PluginCall call) {
         if (island == null) island = new IslandOverlay(getContext());
-        String level = call.getString("level", "low");
-        String levelText = "high".equals(level) ? "高風險" : "medium".equals(level) ? "中風險" : "注意";
-        String name = call.getString("name", "危險路口");
-        int meters = call.getInt("meters", 0);
-        int accidents = call.getInt("accidents", 0);
-        String text = name + "・約 " + meters + " 公尺・歷史事故 " + accidents + " 件";
-        lastNotifyId = GuardianService.postAlert(getContext(), island, lastNotifyId, call.getInt("id", 0),
-                "⚠ 前方危險路口・" + levelText, text, text + "\n" + call.getString("tip", "請減速並注意左右來車"), level,
-                "前方危險路口・" + levelText, name + "・" + meters + " 公尺・事故 " + accidents + " 件");
+        lastNotifyId = GuardianService.postHotspotAlert(getContext(), island, lastNotifyId, call.getInt("id", 0),
+                call.getString("name", "危險路口"), call.getString("level", "low"), call.getInt("meters", 0),
+                call.getInt("accidents", 0), call.getString("tip", "請減速並注意左右來車"));
         JSObject r = new JSObject();
         r.put("overlay", IslandOverlay.allowed(getContext()));
         call.resolve(r);
@@ -244,10 +238,8 @@ public class GuardianPlugin extends Plugin {
     /** 測試提醒：用和實際提醒相同的流程（依設定的提醒方式、聲音、震動）。 */
     private void sendTest(PluginCall call) {
         if (island == null) island = new IslandOverlay(getContext());
-        lastNotifyId = GuardianService.postAlert(getContext(), island, lastNotifyId, 0,
-                "⚠ 測試提醒：前方危險路口", "中正路 / 思源路・約 80 公尺・歷史事故 25 件",
-                "這是測試。接近危險路口時會像這樣提醒。", "high",
-                "測試提醒・前方危險路口", "中正路 / 思源路・80 公尺・事故 25 件");
+        lastNotifyId = GuardianService.postHotspotAlert(getContext(), island, lastNotifyId, 0,
+                "測試：中正路 / 思源路", "high", 80, 25, "這是測試。接近危險路口時會像這樣提醒。");
         JSObject r = new JSObject();
         r.put("overlay", IslandOverlay.allowed(getContext()));
         call.resolve(r);

@@ -369,16 +369,30 @@ public class GuardianService extends Service {
         GuardianEngine.Hotspot h = a.hotspot;
         if (!levelPasses(this, h.level)) return; // 設定只提醒較高風險
         int meters = (int) Math.round(a.distance / 10.0) * 10;
-        String level = "high".equals(h.level) ? "高風險" : "medium".equals(h.level) ? "中風險" : "注意";
-        String title = "⚠ 前方危險路口・" + level;
-        String text = h.name + "・約 " + meters + " 公尺・歷史事故 " + h.accidents + " 件";
         String tip = "car".equals(a.mode) ? "請減速，注意轉彎車與機車" : "bike".equals(a.mode) ? "請減速，注意左右來車與開車門" : "過馬路前左右看，別低頭看手機";
         lastAlertText = h.name + "（" + meters + " m）";
-        lastAlertId = postAlert(this, island, lastAlertId, h.id, title, text, text + "\n" + tip, h.level,
-                "前方危險路口・" + level, h.name + "・" + meters + " 公尺・事故 " + h.accidents + " 件");
+        lastAlertId = postHotspotAlert(this, island, lastAlertId, h.id, h.name, h.level, meters, h.accidents, tip);
         bubble.alert(meters, h.level);
-        speak("注意，前方約" + meters + "公尺，" + h.name.replace("/", "與") + "路口，事故多發，" + tip);
+        // 語音也要短：騎車、開車時只需要知道「多遠、多危險」
+        speak("注意，前方" + meters + "公尺，" + headline(h.level).replace("前方", ""));
         publish();
+    }
+
+    /** 「前方高風險路口」「前方中風險路口」「前方注意路口」 */
+    static String headline(String level) {
+        return "high".equals(level) ? "前方高風險路口" : "medium".equals(level) ? "前方中風險路口" : "前方注意路口";
+    }
+
+    /**
+     * 危險路口提醒的文字（背景守護、App 內模擬行走、測試提醒共用）。
+     * 畫面上只放「風險等級＋距離」，路名與事故數只在通知欄展開時看得到（使用者回饋：導航中只能瞄一眼）。
+     */
+    static int postHotspotAlert(Context ctx, IslandOverlay island, int prevId, int hotspotId, String name, String level,
+                                int meters, int accidents, String tip) {
+        String head = headline(level);
+        String dist = meters + " 公尺";
+        String detail = name + "・歷史事故 " + accidents + " 件\n" + tip;
+        return postAlert(ctx, island, prevId, hotspotId, head + "・" + dist, name, detail, level, head, dist);
     }
 
     /**
@@ -423,7 +437,7 @@ public class GuardianService extends Service {
         }
         // 靈動島懸浮提醒（有「顯示在其他應用程式上層」權限時）
         int color = "high".equals(level) ? 0xFFFF3B30 : "medium".equals(level) ? 0xFFFF9500 : 0xFFF5B800;
-        if (useIsland) island.show(islandTitle, islandSub, color, 7000);
+        if (useIsland) island.show(islandTitle, islandSub, color, 4500); // 短暫出現，少擋導航提示
         return id;
     }
 

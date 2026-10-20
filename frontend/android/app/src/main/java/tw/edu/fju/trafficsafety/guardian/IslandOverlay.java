@@ -85,54 +85,56 @@ public class IslandOverlay {
         });
     }
 
+    /**
+     * 單行小膠囊：● 前方高風險路口　60 公尺（使用者回饋：騎車／開車只能瞄一眼，
+     * 而且上方不能擋住 Google 地圖導航的轉彎提示，所以只放風險等級＋距離）。
+     */
     private LinearLayout build(String title, String subtitle, int levelColor) {
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.HORIZONTAL);
         root.setGravity(Gravity.CENTER_VERTICAL);
-        root.setPadding(dp(10), dp(9), dp(20), dp(9));
+        root.setPadding(dp(7), dp(6), dp(16), dp(6));
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Color.BLACK);
-        bg.setCornerRadius(dp(30));
+        bg.setCornerRadius(dp(22));
         root.setBackground(bg);
         root.setElevation(dp(8));
-        root.setMinimumWidth(dp(250));
 
-        // 左側：圓形警示圖示
+        // 左側：風險顏色的小圓點（含「!」）
         TextView icon = new TextView(ctx);
         icon.setText("!");
         icon.setTextColor(Color.WHITE);
         icon.setTypeface(Typeface.DEFAULT_BOLD);
-        icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         icon.setGravity(Gravity.CENTER);
         GradientDrawable dot = new GradientDrawable();
         dot.setShape(GradientDrawable.OVAL);
         dot.setColor(levelColor);
         icon.setBackground(dot);
-        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(dp(40), dp(40));
-        ilp.rightMargin = dp(12);
+        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(dp(28), dp(28));
+        ilp.rightMargin = dp(9);
         root.addView(icon, ilp);
 
-        LinearLayout texts = new LinearLayout(ctx);
-        texts.setOrientation(LinearLayout.VERTICAL);
         TextView t = new TextView(ctx);
         t.setText(title);
         t.setTextColor(Color.WHITE);
         t.setTypeface(Typeface.DEFAULT_BOLD);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         t.setSingleLine(true);
-        t.setMaxWidth(dp(280));
         t.setEllipsize(TextUtils.TruncateAt.END);
-        TextView s = new TextView(ctx);
-        s.setText(subtitle);
-        s.setTextColor(0xCCFFFFFF);
-        s.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        s.setSingleLine(true);
-        s.setMaxWidth(dp(280));
-        s.setEllipsize(TextUtils.TruncateAt.END);
-        texts.addView(t);
-        texts.addView(s);
-        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        root.addView(texts, tlp);
+        root.addView(t);
+
+        if (subtitle != null && !subtitle.isEmpty()) {
+            TextView s = new TextView(ctx);
+            s.setText(subtitle);
+            s.setTextColor(levelColor == 0xFFF5B800 ? 0xFFFFD84A : levelColor == 0xFFFF9500 ? 0xFFFFB340 : 0xFFFF6B5F);
+            s.setTypeface(Typeface.DEFAULT_BOLD);
+            s.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+            s.setSingleLine(true);
+            LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            slp.leftMargin = dp(10);
+            root.addView(s, slp);
+        }
 
         // 點一下打開 App
         root.setOnClickListener(v -> {
