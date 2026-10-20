@@ -66,8 +66,9 @@ export function mapView({ openReport, openSubmit, startWalk }) {
           <div class="ap-card">
             <span class="ap-card-ic">${icon('warningFill')}</span>
             <span class="ap-card-main">
-              <span class="ap-card-t"><b class="s-count">–</b> 個危險路口<span class="conn-wrap"><span class="pill gray conn">${icon('wifi')}連線中</span></span></span>
+              <span class="ap-card-t"><b class="s-count">–</b> 個危險路口<span class="conn-wrap"><span class="pill conn high" hidden>${icon('warning')}離線</span></span></span>
               <span class="ap-card-s">歷史事故 <b class="s-acc">–</b> 件・附近回報 <b class="s-rep">–</b> 則</span>
+              <span class="ap-card-note">依 115 年 1–10 月官方事故統計</span>
             </span>
             <button class="ap-more" data-act="more" aria-label="更多">${icon('ellipsis')}</button>
           </div>
@@ -150,7 +151,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
   function fitRoute(animate = true) {
     const pad = matchMedia(WIDE).matches
       ? { paddingTopLeft: [440, 60], paddingBottomRight: [80, 60] }
-      : { paddingTopLeft: [30, 80], paddingBottomRight: [30, 380] }
+      : { paddingTopLeft: [30, 80], paddingBottomRight: [74, 380] } // 右邊留給直式膠囊，終點不被蓋住
     map.fitBounds(routeLayer.getBounds(), { ...pad, animate, maxZoom: 17 })
   }
 
@@ -183,9 +184,11 @@ export function mapView({ openReport, openSubmit, startWalk }) {
   }
 
   function setConn(ok) {
+    // 只在連不上伺服器時提示；事故資料是歷史統計，不標「即時」以免誤會成即時路況
     const c = $('.conn', page)
-    c.className = `pill conn ${ok ? 'blue' : 'high'}`
-    c.innerHTML = ok ? '<span class="live-dot"></span>即時' : `${icon('warning')}離線`
+    c.hidden = ok
+    c.className = 'pill conn high'
+    c.innerHTML = `${icon('warning')}離線`
   }
 
   function drawHotspots() {

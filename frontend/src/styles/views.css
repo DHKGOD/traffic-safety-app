@@ -76,6 +76,7 @@
 .ap-card-t b { font-family: var(--font-rounded); }
 .ap-card-s { font-size: 14px; color: var(--label-2); }
 .ap-card-s b { font-weight: 600; color: var(--label); }
+.ap-card-note { font-size: 12px; color: var(--label-3); }
 .conn-wrap { margin-left: auto; }
 .conn-wrap .pill { font-size: 12px; }
 .ap-more { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--label); font-size: 22px; flex: none; }

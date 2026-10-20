@@ -42,7 +42,8 @@ test('地圖首頁：Demo 路線與危險路口清單', async ({ page }) => {
   const n = await page.locator('.hs-list .hs-cell').count()
   expect(n).toBeGreaterThan(5)
   expect(Number(await page.locator('.s-count').textContent())).toBe(n)
-  await expect(page.locator('.conn')).toContainText('即時')
+  await expect(page.locator('.conn')).toBeHidden() // 連線正常不顯示（不標「即時」，事故資料是歷史統計）
+  await expect(page.locator('.ap-card-note')).toContainText('115 年')
   await expect(page.locator('.leaflet-marker-icon .hs-marker')).toHaveCount(n)
 })
 
