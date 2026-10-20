@@ -50,7 +50,33 @@ export function createMap(container, opts = {}) {
   // MapLibre 地圖要等 Leaflet 設好視野（whenReady）後才會建立
   map.whenReady(() => {
     const glMap = gl.getMaplibreMap()
-    glMap?.on('style.load', () => localizeLabels(glMap))
+    if (!glMap) return
+    glMap.on('style.load', () => localizeLabels(glMap))
+    // 網路瞬斷時圖磚來源（TileJSON）或樣式載入失敗會整片空白、不會自己恢復（實機發現）：
+    // 自動重新載入樣式，間隔 2、4、8… 秒（最多 30 秒），網路恢復時立刻重試
+    let failed = false
+    let tries = 0
+    let timer = 0
+    const reload = () => {
+      clearTimeout(timer)
+      timer = 0
+      if (!failed) return
+      failed = false
+      glMap.setStyle(isDark() ? STYLE.dark : STYLE.light, { diff: false })
+    }
+    glMap.on('error', (e) => {
+      if (e?.tile) return // 單一圖磚失敗：移動地圖時 MapLibre 會再抓，不必整個重載
+      const msg = String(e?.error?.message || e?.error || '')
+      const network = e?.error?.status === 0 || /Failed to fetch|NetworkError|AJAXError/i.test(msg)
+      if (!network || timer) return
+      failed = true
+      tries += 1
+      timer = setTimeout(reload, Math.min(30000, 2000 * 2 ** Math.min(tries - 1, 4)))
+    })
+    glMap.on('idle', () => { if (!failed) tries = 0 })
+    const onOnline = () => { if (failed) reload() }
+    window.addEventListener('online', onOnline)
+    map.on('unload', () => { clearTimeout(timer); window.removeEventListener('online', onOnline) })
   })
   let dark = isDark()
   const apply = () => {

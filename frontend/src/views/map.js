@@ -67,7 +67,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
             <span class="ap-card-ic">${icon('warningFill')}</span>
             <span class="ap-card-main">
               <span class="ap-card-t"><b class="s-count">–</b> 個危險路口<span class="conn-wrap"><span class="pill conn high" hidden>${icon('warning')}離線</span></span></span>
-              <span class="ap-card-s">歷史事故 <b class="s-acc">–</b> 件・附近回報 <b class="s-rep">–</b> 則</span>
+              <span class="ap-card-s">事故 <b class="s-acc">–</b> 件・回報 <b class="s-rep">–</b> 則</span>
               <span class="ap-card-note">依 115 年 1–10 月官方事故統計</span>
             </span>
             <button class="ap-more" data-act="more" aria-label="更多">${icon('ellipsis')}</button>
@@ -149,9 +149,14 @@ export function mapView({ openReport, openSubmit, startWalk }) {
   }
 
   function fitRoute(animate = true) {
+    // 下方留白＝抽屜目前蓋住的高度（手機尺寸不同，不寫死）；右邊留給直式膠囊，終點不被蓋住
+    // （用抽屜的目標段位計算，不用目前位置：抽屜可能正在滑動動畫中）
+    const mapH = mapEl.getBoundingClientRect().height
+    const visible = sheet.getBoundingClientRect().height - snaps()[snapIdx] + (mapH - sheet.parentElement.getBoundingClientRect().height) + 8
+    const bottom = visible > 60 && visible < mapH - 120 ? Math.round(visible + 20) : Math.round(mapH * 0.45)
     const pad = matchMedia(WIDE).matches
       ? { paddingTopLeft: [440, 60], paddingBottomRight: [80, 60] }
-      : { paddingTopLeft: [30, 80], paddingBottomRight: [74, 380] } // 右邊留給直式膠囊，終點不被蓋住
+      : { paddingTopLeft: [30, 76], paddingBottomRight: [74, bottom] }
     map.fitBounds(routeLayer.getBounds(), { ...pad, animate, maxZoom: 17 })
   }
 

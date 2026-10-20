@@ -11,7 +11,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:8000',
     ...devices['Galaxy S9+'],  // 手機尺寸、觸控
-    viewport: { width: 384, height: 854 },  // 接近 S21 FE 的 CSS 尺寸
+    viewport: { width: 360, height: 780 },  // S21 FE 實測的 CSS 尺寸（1080×2340、DPR 3）
     locale: 'zh-TW',
     timezoneId: 'Asia/Taipei',
     geolocation: { latitude: 25.0478, longitude: 121.5170 },  // 台北車站

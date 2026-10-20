@@ -47,6 +47,16 @@ test('地圖首頁：Demo 路線與危險路口清單', async ({ page }) => {
   await expect(page.locator('.leaflet-marker-icon .hs-marker')).toHaveCount(n)
 })
 
+test('底圖網路瞬斷：圖磚來源第一次載入失敗會自動重試（實機曾整片空白）', async ({ page }) => {
+  let tilejson = 0
+  await page.route('**/tiles.openfreemap.org/planet**', (r) => {
+    tilejson += 1
+    return tilejson === 1 ? r.abort('connectionreset') : r.continue()
+  })
+  await openApp(page)
+  await expect.poll(() => tilejson, { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
+})
+
 test('天候與時段模式（iOS 動作表）', async ({ page }) => {
   await openApp(page)
   const before = Number(await page.locator('.s-acc').textContent())
