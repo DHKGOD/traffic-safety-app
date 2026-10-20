@@ -30,7 +30,27 @@
 5. 從 HANDOFF.md 的「下一步」繼續。
 ```
 
-## C. 平常協作（兩邊都有額度時）
+## C. 交給另一個 agent 做新功能
+
+在新的 agent（Claude Code 新工作階段、Codex 或其他）貼上，把 `<功能>` 換成要做的事：
+
+```
+你要在這個專案（Android App「有路安」，交通事故危險路口提醒，資料庫課程專題）新增功能：<功能>。
+請依序：
+1. 讀 AGENTS.md（規則）、HANDOFF.md（特別是「給新 agent 的 5 分鐘導覽」「進行中的工作」）、TASKS.md。
+2. git status、git log --oneline -15。工作目錄有使用者擱置、未 commit 的「App 內更新」修改（HANDOFF 有列檔名）：
+   不要 commit、不要還原、不要 git add -A / git stash；commit 時只 add 你改的檔案。
+3. 在 TASKS.md 新增這個任務並標成 🔄（寫上你的名字）。
+4. 開發：後端改完重啟伺服器（uv run python scripts/server.py stop/start），前端改完 cd frontend; npx vite build。
+5. 測試：uv run pytest、powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1（新功能要加 E2E 測試）。
+   UI 改動用 Playwright 以手機尺寸 412×892 截圖（淺色＋深色）給使用者看。
+6. 打包 APK 只用 scripts\build_apk_clean.ps1（不會包進擱置的修改）。
+7. 小步 commit（繁體中文訊息），完成後更新 HANDOFF.md 與 TASKS.md 並 commit。不要推送 GitHub，除非使用者同意。
+```
+
+如果和其他 agent 同時工作：各自開分支（`claude/<主題>`、`codex/<主題>`、`agent/<主題>`），不要同時改同一個檔案；`views/map.js`、`styles/views.css` 是常改的檔案，最容易衝突。
+
+## D. 平常協作（兩邊都有額度時）
 
 | 情境 | 指令（在 Claude Code） |
 |---|---|
@@ -41,7 +61,7 @@
 
 規則：兩邊同時工作時用不同分支（`claude/...`、`codex/...`），不要同時改同一個檔案。
 
-## D. 查看各自的額度
+## E. 查看各自的額度
 
 | 工具 | 方法 |
 |---|---|

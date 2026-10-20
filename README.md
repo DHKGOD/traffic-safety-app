@@ -69,6 +69,14 @@ powershell -ExecutionPolicy Bypass -File scripts\build_apk.ps1
 
 會建置前端 → 同步 Capacitor → Gradle 打包 → 複製到 `dist/traffic-safety-debug.apk` → 若有接手機就 `adb install` 並開啟。只打包不安裝加 `-NoInstall`。
 
+工作目錄有還沒 commit 的修改、但只想打包「最新 commit」時，改用：
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts\build_apk_clean.ps1
+```
+
+它會在 `%TEMP%\youluan-apkbuild` 建一份乾淨的 worktree 再打包，未 commit 的修改不會被包進 APK。
+
 第一次開 App 會要求輸入伺服器位址（之後可在「設定」頁修改，換到雲端不用重新打包）。
 
 ## 4. 開發
@@ -85,7 +93,7 @@ uv run python ai/train_cause_model.py   # 重新訓練 AI（約 2 分鐘，寫�
 | 測試 | 指令 | 內容 |
 |---|---|---|
 | 後端＋資料處理 | `uv run pytest` | 43 項：API、PostGIS 與替代查詢一致、回報、路線分享、AI、匯入純函式、路口合併 |
-| 端對端（模擬真人操作） | `powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1` | 18 項：Playwright 手機尺寸＋平板橫式，實際點完每個功能（結束後自動清除測試資料） |
+| 端對端（模擬真人操作） | `powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1` | 23 項：Playwright 手機尺寸＋平板橫式，實際點完每個功能（結束後自動清除測試資料） |
 | 守護模式邏輯（Java） | `powershell -ExecutionPolicy Bypass -File scripts\test_guardian.ps1` | 7 項：提醒距離、接近判斷、冷卻、搭車靜音、長輩模式 |
 | 實機巡檢（S21 FE） | `adb reverse tcp:8000 tcp:8000` 後 `uv run python scripts/phone_tour.py` | 自動點過 22 個畫面、收集 JS 錯誤、截圖到 `logs/phone_tour/` |
 | 實機背景守護 | `uv run python scripts/guardian_device_test.py 60` | 開始路線模擬 → 回到桌面 → 確認提醒與靈動島截圖 |
