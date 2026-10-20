@@ -221,6 +221,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
         if (q.tooFar) {
           hotspots = []
           drawHotspots()
+          drawReports() // 附近回報數跟著目前地圖範圍更新
           $('.hs-list', page).innerHTML = emptyState('search', '放大地圖看危險路口', '範圍太大時不顯示，拉近到街區就會出現')
           return
         }

@@ -1,7 +1,16 @@
 # HANDOFF 交接
 
 > 每完成一個小任務、或對話快滿／額度快到時，都要更新本檔並 commit。接手方先讀 AGENTS.md、本檔、TASKS.md。
-> 最後更新：2026-10-20（Codex，修復提交 `84b006e`、`1dc4ff6`，測試完成）。App 名稱已改為 **「有路安」**（套件名稱仍是 `tw.edu.fju.trafficsafety`，不要改，否則手機要重裝）。
+> 最後更新：2026-10-21（Claude，AI 任務 2 完成 `b1acda9`）。App 名稱已改為 **「有路安」**（套件名稱仍是 `tw.edu.fju.trafficsafety`，不要改，否則手機要重裝）。
+
+## AI 任務 2 完成（2026-10-21，Claude，commit `b1acda9`）
+
+- `ai/rain_risk.py`＋`migrations/005_rain_risk.sql`：氣象署 C-B0025-001 每日雨量（38 測站、1/1 起，快取在 `data/raw/cwa/`）、測站座標 O-A0003-001／O-A0001-001；行政區對應 30 km 內最近測站，≥1 mm 為雨天。
+- **A 每日事故模型**（Poisson：行政區＋星期幾＋雨量強度）：測試期雨天 deviance 1.260，基準「行政區＋星期幾」1.271、「行政區平均」1.355。豪雨日事故是晴天 0.84 倍（出門的人變少）。
+- **B 路口雨天標記**（雨天占比 vs 同區預期，二項檢定＋BH 5%）：舊算法（天候欄 ≥20%）標的 207 路口測試期實際÷預期 1.02，和其他路口 1.01 沒差別 → 舊標記是雜訊；新方法 0 個顯著。路口報告現在說「晴天、雨天都會發生」，有顯著才說「雨天特別容易出事」。
+- 「各區各自的雨天倍數」試過，測試期變差（過度擬合），不採用。決策 R1–R5 在 `docs/decisions.md`，數字在 `docs/ai-report-rain.md`。
+- `server.py` 啟動時若 `hotspot_rain_risk` 是空的且有金鑰／快取就自動補算；AI 路由只載入有 `artifact_path` 的模型（rain_risk 沒有模型檔）。
+- 驗證：pytest **52 passed**、E2E **27 passed**；未改 Android，不需重打 APK。
 
 ## Codex 修復完成（2026-10-20）
 
@@ -125,7 +134,7 @@
 ## 下一步（可直接開始）
 
 1. **手機實機驗證**（手機解鎖後）：`powershell -ExecutionPolicy Bypass -File scripts\build_apk_clean.ps1` 安裝最新版 → `uv run python scripts/phone_tour.py`（23 步、JS 錯誤 0）→ `uv run python scripts/background_alert_test.py bg 50` 與 `... nav 50`（`logs/background_test/` 截圖要看到靈動島與護航小圖示、輸出提醒 ≥1）。注意 `phone_tour.py` 的步驟選擇器是舊版 UI 寫的（例如 `05_sheet_half` 現在是收到最小），失敗先對照 `views/map.js` 更新。
-2. **AI 任務 2（天候風險校正）**：先實際呼叫確認氣象署有沒有 2026 年逐日／逐時雨量的資料集（不要憑記憶猜；API 格式紀錄見 `backend/app/routers/weather.py` 開頭）；計算各行政區「下雨時數占比」，雨天風險倍數 = 雨天事故占比 ÷ 下雨時數占比；寫入新表（`migrations/005_...`），報告頁顯示「下雨時事故風險是平常的 N 倍」。
+2. ~~AI 任務 2~~ 已完成（見上方「AI 任務 2 完成」）。之後若想讓路口雨天標記更有力，需要更多月份資料（目前 1–10 月，檢定後 0 個路口顯著）。
 3. （選用）背景守護用 Activity Recognition 區分搭車與開車；錄 Demo 影片。
 
 ## 已知問題與注意事項
@@ -178,6 +187,10 @@ START_STICKY 重啟 intent 為 null（成立，從 SharedPreferences 恢復）�
 | 3 | 只用靈動島時「提示音」設定無效 | 只用靈動島且開提示音時由 App 播系統通知音 |
 
 **`14511b8` 之後的 UI 修改（地圖標記、改名、字型、路線線寬等）還沒經過 Codex 審查**，下次審查範圍：`40b7dee..HEAD`。
+
+### 第 5 次（Codex，40b7dee..b1acda9：Apple 地圖版面、提醒、雨天校正）3 項，2 項已修正
+- 已修：路口報告雨天說明改成「和附近比」的相對說法，事故 < 8 件說「看不出關係」；探索模式拉遠時「附近回報」數也更新。
+- 未修（等使用者決定）：擱置中的 App 更新把版本改成 0.2.0，但「設定 → 關於」仍寫 0.1.0；決定 commit 更新功能時一起改 `frontend/src/views/settings.js`。
 
 ### 本次 Codex 環境備註
 - 本機測試瀏覽器放在專案 `logs/playwright-browsers`。此 Codex 環境執行 E2E 前設定 `$env:PLAYWRIGHT_BROWSERS_PATH='E:\User\桌面\資料庫專題\logs\playwright-browsers'`，避免到不同代理程式的預設快取尋找。下載時用 `$env:NODE_USE_SYSTEM_CA='1'` 處理既有防毒憑證，不關閉 TLS 驗證。

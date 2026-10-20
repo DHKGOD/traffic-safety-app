@@ -43,10 +43,12 @@ function whenText(d) {
   // 天候一定說：晴天或雨天（使用者要求）。優先用 AI 任務 2 的測站雨量校正結果（和同一區預期比，經檢定）；
   // 沒有校正資料時才退回天候欄的舊判斷（台灣整體約一成事故在雨天）
   const extra = []
-  const rl = d.rain_risk?.level
-  if (rl === 'rain_high') extra.push('<b>雨天</b>特別容易出事，下雨要特別小心')
-  else if (rl === 'rain_low') extra.push('大多發生在<b>晴天</b>')
-  else if (rl === 'normal') extra.push('<b>晴天、雨天</b>都會發生')
+  // level 是「和同一區比」的相對結果；事故少於 8 件的不檢定（rain_risk.py 的 MIN_N），要說證據不足
+  const rr = d.rain_risk
+  if (rr && rr.accidents < 8) extra.push('事故還不多，看不出和<b>晴天、雨天</b>的關係')
+  else if (rr?.level === 'rain_high') extra.push('<b>雨天</b>出事比附近多，下雨要特別小心')
+  else if (rr?.level === 'rain_low') extra.push('<b>雨天</b>出事反而比附近少')
+  else if (rr?.level === 'normal') extra.push('<b>晴天、雨天</b>都會發生，雨天沒有比附近多')
   else if (s.rain_ratio >= 0.2) extra.push('<b>雨天</b>特別容易出事，下雨要特別小心')
   else if (s.rain_ratio >= 0.1) extra.push('<b>晴天、雨天</b>都常發生')
   else extra.push('大多發生在<b>晴天</b>')
