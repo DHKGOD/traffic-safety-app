@@ -1,4 +1,4 @@
-// 路口體檢報告頁：事故數、時段分布、主要肇因與型態、改善建議、附近回報、AI 預測、匯出
+// 路口體檢報告頁：事故數、什麼時候容易出事、時段分布、主要肇因與型態（前 3）、AI 預測、車種與天候、最近事故、附近回報、匯出
 import { api } from '../api.js'
 import { exportReport } from '../export.js'
 import { elderMode } from '../family.js'
@@ -23,6 +23,27 @@ function stackBar(items) {
   const sum = items.reduce((s, i) => s + i.n, 0) || 1
   return `<div class="stack-bar">${items.map((i, k) => `<span style="flex:${i.n / sum};background:${PALETTE[k % PALETTE.length]}"></span>`).join('')}</div>
     <div class="legend">${items.map((i, k) => `<span><i class="dot" style="background:${PALETTE[k % PALETTE.length]}"></i>${esc(i.name)} ${Math.round((i.n / sum) * 100)}%</span>`).join('')}</div>`
+}
+
+/** 前 3 名，拿掉「其他…」這種沒有參考價值的分類（使用者回饋：資訊越簡單越好） */
+const top3 = (items) => items.filter((i) => !/^其他/.test(i.name)).slice(0, 3)
+
+const HOUR_PART = (h) => (h <= 5 ? '深夜' : h <= 9 ? '早上通勤' : h <= 15 ? '白天' : h <= 19 ? '傍晚下班' : '晚上')
+
+/** 用一句話說「什麼時候容易出事」，取代雨天／夜間百分比（使用者回饋：直接說明就好） */
+function whenText(d) {
+  const s = d.summary
+  // 找事故最多的連續 2 小時
+  let best = 0
+  for (let i = 0; i < 24; i++) if (d.hourly[i] + d.hourly[(i + 1) % 24] > d.hourly[best] + d.hourly[(best + 1) % 24]) best = i
+  const parts = [`最常在<b>${HOUR_PART(best)}（${best}–${(best + 2) % 24} 時）</b>發生事故`]
+  const avg = d.weekday.reduce((a, b) => a + b, 0) / 7
+  const wmax = Math.max(...d.weekday)
+  if (avg > 0 && wmax >= avg * 1.35) parts.push(`<b>星期${WEEK[d.weekday.indexOf(wmax)]}</b>較多`)
+  const extra = []
+  if (s.rain_ratio >= 0.2) extra.push('<b>下雨時</b>事故比例偏高，要特別小心')
+  if (s.night_ratio >= 0.35 && HOUR_PART(best) !== '晚上' && HOUR_PART(best) !== '深夜') extra.push('<b>晚上</b>也常發生，注意照明與視線')
+  return `這裡${parts.join('，')}${extra.length ? '；' + extra.join('；') : ''}。`
 }
 
 export function reportView(h, { back = '地圖' } = {}) {
@@ -54,13 +75,16 @@ export function reportView(h, { back = '地圖' } = {}) {
     const s = d.summary
     const max = Math.max(1, ...d.hourly)
     const peak = d.hourly.indexOf(Math.max(...d.hourly))
-    const wmax = Math.max(1, ...d.weekday)
     p.body.innerHTML = `
-      <div class="section stat-grid">
+      <div class="section stat-grid" style="grid-template-columns:repeat(2,1fr)">
         <div class="stat"><div class="stat-label" style="color:var(--red)">${icon('car')}事故</div><div class="stat-value">${s.accidents}<small>件</small></div></div>
         <div class="stat"><div class="stat-label" style="color:var(--orange)">${icon('person')}受傷</div><div class="stat-value">${s.injuries}<small>人</small></div></div>
-        <div class="stat"><div class="stat-label" style="color:var(--blue)">${icon('rain')}雨天占比</div><div class="stat-value">${fmt.pct(s.rain_ratio)}</div></div>
-        <div class="stat"><div class="stat-label" style="color:var(--indigo)">${icon('moon')}夜間占比</div><div class="stat-value">${fmt.pct(s.night_ratio)}</div></div>
+      </div>
+      <div class="section">
+        <div class="card when-card">
+          <div class="stat-label" style="color:var(--indigo)">${icon('clock')}什麼時候容易出事</div>
+          <div class="when-text">${whenText(d)}</div>
+        </div>
       </div>
 
       <div class="section chart-card">
@@ -73,29 +97,17 @@ export function reportView(h, { back = '地圖' } = {}) {
       <div class="section charts-2">
         <div class="chart-card">
           <h4>${icon('warning')}主要肇因</h4>
-          <div class="hint">警方研判的主要肇事原因</div>
-          ${hbars(d.causes, 'var(--red)', s.accidents)}
+          <div class="hint">警方研判的主要肇事原因（前 3 名）</div>
+          ${hbars(top3(d.causes), 'var(--red)', s.accidents)}
         </div>
         <div class="chart-card">
           <h4>${icon('car')}事故型態</h4>
-          <div class="hint">怎麼撞的</div>
-          ${hbars(d.collisions, 'var(--orange)', s.accidents)}
+          <div class="hint">怎麼撞的（前 3 名）</div>
+          ${hbars(top3(d.collisions), 'var(--orange)', s.accidents)}
         </div>
       </div>
 
       <div class="section ai-slot"></div>
-
-      <div class="section">
-        <div class="section-header big">改善建議</div>
-        <div class="card">
-          ${d.advice.road_user.map((t) => `<div class="advice-item"><span style="color:var(--blue)">${icon('lightbulb')}</span><span>${esc(t)}</span></div>`).join('')}
-        </div>
-        ${d.advice.authority.length ? `
-        <div class="section-header" style="margin-top:18px">給道路管理單位</div>
-        <div class="card">
-          ${d.advice.authority.map((t) => `<div class="advice-item"><span style="color:var(--teal)">${icon('building')}</span><span>${esc(t)}</span></div>`).join('')}
-        </div>` : ''}
-      </div>
 
       <div class="section charts-2">
         <div class="chart-card">
@@ -103,21 +115,8 @@ export function reportView(h, { back = '地圖' } = {}) {
           ${stackBar(d.vehicles)}
         </div>
         <div class="chart-card">
-          <h4>${icon('person')}當事人年齡</h4>
-          ${stackBar(d.ages)}
-          ${s.elderly_party_ratio >= 0.1 ? `<div class="hint" style="margin-top:10px">65 歲以上占 ${fmt.pct(s.elderly_party_ratio)}，適合用「家人模式」提醒長輩</div>` : ''}
-        </div>
-      </div>
-
-      <div class="section charts-2">
-        <div class="chart-card">
           <h4>${icon('sun')}天候</h4>
           ${stackBar(d.weather)}
-        </div>
-        <div class="chart-card">
-          <h4>${icon('chart')}星期分布</h4>
-          <div class="bars" style="height:80px">${d.weekday.map((n, i) => `<div class="bar" style="height:${(n / wmax) * 100}%;animation-delay:${i * 40}ms"></div>`).join('')}</div>
-          <div class="bar-axis">${WEEK.map((w) => `<span>${w}</span>`).join('')}</div>
         </div>
       </div>
 

@@ -53,7 +53,7 @@ function beep() {
   } catch { /* 沒有音效裝置 */ }
 }
 
-async function speak(text) {
+export async function speak(text) {
   try {
     if (isNative()) {
       await TextToSpeech.stop().catch(() => {})

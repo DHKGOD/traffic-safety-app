@@ -95,6 +95,11 @@
   min-width: 26px; height: 24px; padding: 0 8px; border-radius: 12px; background: var(--red); color: #fff;
   font-size: 14px; font-weight: 700; display: inline-grid; place-items: center; font-family: var(--font-rounded);
 }
+/* 路口體檢報告：「什麼時候容易出事」一句話說明 */
+.when-card { padding: 14px 16px; }
+.when-text { margin-top: 6px; font-size: 16px; line-height: 1.55; color: var(--label); }
+.when-text b { color: var(--indigo); font-weight: 600; }
+
 /* 設定：開發者選項的說明可換行，不被截斷 */
 [data-dev] .cell-sub, .dev-perm { white-space: normal !important; overflow: visible; text-overflow: clip; line-height: 1.35; }
 
@@ -102,6 +107,7 @@
 .link-btn { color: var(--blue); font-size: 15px; font-weight: 500; display: inline-flex; align-items: center; gap: 2px; padding: 2px 0; }
 .rank-search .q-ph { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rank-search.has-q { color: var(--label); font-weight: 500; }
+.rank-seg { margin-top: 12px; }
 .rank-chips { margin-top: 12px; }
 .rank-chips .rank-act { display: contents; }
 .scope-chip .sc-t { max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
@@ -114,7 +120,9 @@
 .rank-cell .chev { margin-left: -4px; }
 
 /* 附近範圍選擇（小地圖＋距離） */
-.rp-map { height: 260px; border-radius: 16px; overflow: hidden; position: relative; background: var(--card-2); }
+/* 內容在視窗中垂直置中（略偏上），地圖約半個螢幕高，下方不要留一大片空白 */
+.rp-wrap { min-height: 100%; display: flex; flex-direction: column; justify-content: center; padding-bottom: 4vh; }
+.rp-map { height: min(50vh, 440px); min-height: 240px; border-radius: 18px; overflow: hidden; position: relative; background: var(--card-2); flex: none; }
 .rp-count { display: flex; align-items: baseline; justify-content: center; gap: 6px; margin-top: 16px; }
 .rp-num { font-size: 34px; font-weight: 800; font-family: var(--font-rounded); letter-spacing: -0.02em; }
 .rp-text { font-size: 15px; color: var(--label-2); }

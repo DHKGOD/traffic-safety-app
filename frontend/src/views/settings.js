@@ -8,6 +8,7 @@ import {
   requestOverlay, setGuardianMode, startGuardian, stopGuardian, testGuardianAlert,
 } from '../guardian.js'
 import { ALERT_DISTANCES, ALERT_LEVELS, ALERT_STYLES, alertPrefs, setAlertPrefs } from '../alerts.js'
+import { speak } from '../walk.js'
 
 export function applyTheme(t) {
   if (t === 'auto') delete document.documentElement.dataset.theme
@@ -308,7 +309,14 @@ export function settingsView({ openAdmin, openFamily, devWalk }) {
     if (e.target.closest('[data-family]')) openFamily()
     if (e.target.closest('[data-gmode]')) pickMode()
     if (e.target.closest('[data-overlay]')) requestOverlay().then((r) => { if (r?.allowed) toast('靈動島提醒已開啟', { icon: 'sparkles', color: '#000' }); else toast('請在接下來的頁面開啟「有路安」的權限，再回到 App', { icon: 'sparkles', color: '#000', ms: 5000 }) }).catch((err) => toastError(err.message))
-    if (e.target.closest('[data-gtest]')) testGuardianAlert().then(() => toast('已送出測試通知，請看螢幕上方', { icon: 'shield', color: 'var(--blue)' })).catch((err) => toastError(err.message || '無法送出通知'))
+    if (e.target.closest('[data-gtest]')) {
+      // 依設定一起播語音，讓使用者確認聽得到（語音走「媒體音量」，不是鈴聲音量）
+      const pr = alertPrefs()
+      if (pr.voice) speak('注意，前方80公尺，高風險路口')
+      testGuardianAlert()
+        .then(() => toast(pr.voice ? '已送出測試提醒；沒聽到語音請調高「媒體音量」' : '已送出測試提醒（語音播報已關閉）', { icon: 'shield', color: 'var(--blue)', ms: 4000 }))
+        .catch((err) => toastError(err.message || '無法送出通知'))
+    }
   })
   $('.srv', p.el).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.target.blur(); test(true) } })
   let shown = false

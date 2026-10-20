@@ -151,7 +151,9 @@ test('路口體檢報告：圖表、建議、匯出、返回', async ({ page }) 
   await expect(report.locator('.report-hero .t-title1')).toHaveText(name)
   await expect(report.locator('.stat-value').first()).toBeVisible()
   await expect(report.locator('.bars').first().locator('.bar')).toHaveCount(24)
-  await expect(report.locator('.advice-item').first()).toBeVisible()
+  await expect(report.locator('.when-text')).toContainText('最常在')
+  await expect(report.locator('.hbars').first().locator('.hbar-label')).toHaveCount(3) // 主要肇因只留前 3 名
+  await expect(report).not.toContainText('雨天占比')
   const download = page.waitForEvent('download')
   await report.locator('[data-export]').click()
   expect((await download).suggestedFilename()).toContain('路口體檢報告')
@@ -383,7 +385,7 @@ test('設定：危險通知偏好會保存；開發者選項可直接開始模�
   await expect(page.locator('.walk-panel .segmented button.active')).toHaveText('30×')
   await expect(page.locator('[data-tab="map"]')).toHaveClass(/active/)
   // 只提醒高風險：先經過的中風險路口不應出現紅框提醒，第一個提醒必須是高風險
-  await expect(page.locator('.walk-alert')).toContainText('高風險', { timeout: 30_000 })
+  await expect(page.locator('.walk-alert')).toContainText('高風險', { timeout: 70_000 }) // 第一個高風險路口在路線中段
   await page.locator('.walk-panel [data-w="stop"]').click()
 })
 

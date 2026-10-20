@@ -49,7 +49,7 @@ export function rankingView({ openReport }) {
   let searched = null                          // 搜尋結果（暫時）：{ kind:'area', city, district } 或 { kind:'place', name, lat, lon }
   p.body.innerHTML = `
     <div class="section" style="margin-top:2px">
-      <button class="search-field rank-search">${icon('search')}<span class="q-ph">搜尋地區或地點，例如 板橋、台中車站</span></button>
+      <button class="search-field rank-search">${icon('search')}<span class="q-ph">搜尋地區或地點</span></button>
       <div class="seg-scope" style="margin-top:12px"></div>
       <div class="chips rank-chips">
         <span class="rank-act"></span>
@@ -60,6 +60,7 @@ export function rankingView({ openReport }) {
     <div class="section"><div class="section-header rank-head"></div><div class="rank-list"></div></div>
     ${disclaimer()}`
   const seg = segmented(SCOPES, scope, (v) => { scope = v; searched = null; store.set('rankScope', v); if (v === 'custom' && !custom) pickCustom(); else load() })
+  seg.classList.add('rank-seg') // replaceWith 會丟掉原本 div 的間距，改用 class
   $('.seg-scope', p.el).replaceWith(seg)
   let rows = []
   let seq = 0
@@ -79,11 +80,13 @@ export function rankingView({ openReport }) {
   async function pickRadius() {
     let r = radiusM()
     const m = modal({ title: '附近範圍', right: '套用', onRight: (close) => { store.set('rankRadius', r); close(); load() }, content: `
-      <div class="rp-map"></div>
-      <div class="rp-count"><span class="rp-num">–</span><span class="rp-text">個危險路口</span></div>
-      <div class="rp-levels"></div>
-      <div class="rp-seg"></div>
-      <div class="t-footnote c-2 rp-where" style="text-align:center;margin-top:10px"></div>` })
+      <div class="rp-wrap">
+        <div class="rp-map"></div>
+        <div class="rp-count"><span class="rp-num">–</span><span class="rp-text">個危險路口</span></div>
+        <div class="rp-levels"></div>
+        <div class="rp-seg"></div>
+        <div class="t-footnote c-2 rp-where" style="text-align:center;margin-top:12px"></div>
+      </div>` })
     const pos = lastPos || await myPosition()
     $('.rp-where', m.body).textContent = pos.gps ? '以目前位置為中心' : `以${pos.name || '路線起點'}為中心（未開啟定位）`
     const segEl = segmented(RADII.map((v) => ({ value: String(v), label: v >= 1000 ? `${v / 1000}km` : `${v}m` })), String(r), (v) => { r = +v; draw() })
@@ -294,7 +297,7 @@ export function rankingView({ openReport }) {
 
   function clearSearch() {
     searched = null
-    $('.rank-search .q-ph', p.el).textContent = '搜尋地區或地點，例如 板橋、台中車站'
+    $('.rank-search .q-ph', p.el).textContent = '搜尋地區或地點'
     $('.rank-search', p.el).classList.remove('has-q')
     load()
   }
