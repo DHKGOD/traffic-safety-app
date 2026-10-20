@@ -1,6 +1,6 @@
 {
   "appId": "tw.edu.fju.trafficsafety",
-  "appName": "路口安全通",
+  "appName": "有路安",
   "webDir": "dist",
   "server": {
     "androidScheme": "http",

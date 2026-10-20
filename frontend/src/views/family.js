@@ -85,7 +85,7 @@ export function familyView({ goMap }) {
                 distance_m: r.distance_m, duration_s: r.duration_s, for_elder: true },
       })
       haptic(15)
-      const text = `用「路口安全通」App →「設定」→「家人模式」輸入代碼 ${res.code}，就能看到我幫你設定的路線：${r.start.name} → ${r.end.name}（30 天內有效）`
+      const text = `用「有路安」App →「設定」→「家人模式」輸入代碼 ${res.code}，就能看到我幫你設定的路線：${r.start.name} → ${r.end.name}（30 天內有效）`
       const content = el(`
         <div style="text-align:center;padding:24px 4px">
           <div class="t-subhead c-2">請長輩在 App 輸入這組代碼</div>
@@ -97,8 +97,8 @@ export function familyView({ goMap }) {
       const m = modal({ title: '分享路線', left: '完成', content })
       $('[data-sh]', content).addEventListener('click', async () => {
         try {
-          if (isNative()) await Share.share({ title: '路口安全通：分享路線', text, dialogTitle: '傳給家人' })
-          else if (navigator.share) await navigator.share({ title: '路口安全通', text })
+          if (isNative()) await Share.share({ title: '有路安：分享路線', text, dialogTitle: '傳給家人' })
+          else if (navigator.share) await navigator.share({ title: '有路安', text })
           else { await navigator.clipboard.writeText(text); toast('已複製分享文字') }
         } catch { /* 使用者取消 */ }
       })

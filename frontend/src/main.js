@@ -1,5 +1,5 @@
 // App 入口：分頁列、各分頁的頁面堆疊、Android 返回鍵、首次啟動設定伺服器
-import '@fontsource-variable/inter'
+import '@fontsource-variable/inter/opsz.css' // 含光學尺寸軸：大字自動用較緊的 Display 字形（像 SF Pro Display）
 import './styles/base.css'
 import './styles/components.css'
 import './styles/views.css'
@@ -125,7 +125,7 @@ function onboarding() {
     <div class="page" style="z-index:300;position:fixed;overflow-y:auto">
       <div class="onboard">
         <div class="app-icon">${icon('warningFill')}</div>
-        <div class="t-large-title">路口安全通</div>
+        <div class="t-large-title">有路安</div>
         <div class="t-body c-2" style="margin-top:8px">用官方事故資料，提醒你注意危險路口</div>
         <div class="feature">${icon('map')}<div><div class="t-headline">路線上的危險路口</div><div class="t-subhead c-2">晴天、雨天、不同時段，各有不同的危險路口</div></div></div>
         <div class="feature">${icon('walk')}<div><div class="t-headline">接近時語音提醒</div><div class="t-subhead c-2">語音＋提示音＋紅框，平板沒有 GPS 也能模擬行走</div></div></div>

@@ -38,6 +38,18 @@
 }
 .sheet-ctrls .fab-round { border-radius: 50%; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18); border: 0.5px solid var(--glass-border); }
 .sheet-ctrls .fab-round.on { background: var(--blue); color: #fff; }
+/* 地圖左下角的 App 名稱（像 Google 地圖的「Google Maps」字樣，改用 Apple 風格的圓體粗字） */
+.ctrl-left { display: flex; align-items: flex-end; gap: 10px; }
+.map-brand { display: flex; flex-direction: column; gap: 1px; padding-bottom: 2px; pointer-events: none; }
+.mb-t {
+  font-family: var(--font-rounded); font-size: 22px; font-weight: 800; letter-spacing: 0.04em; line-height: 1;
+  color: var(--label); text-shadow: 0 0 2px var(--bg), 0 0 4px var(--bg), 0 0 8px var(--bg);
+}
+.mb-attr {
+  pointer-events: auto; font-size: 9.5px; font-weight: 500; color: var(--label-2); letter-spacing: 0;
+  text-shadow: 0 0 2px var(--bg), 0 0 4px var(--bg);
+}
+.map-page .leaflet-control-attribution { display: none; } /* 地圖資料來源改顯示在 App 名稱下方（原本被抽屜蓋住） */
 .fab-capsule {
   display: flex; flex-direction: column; border-radius: 25px; overflow: hidden;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18); border: 0.5px solid var(--glass-border);

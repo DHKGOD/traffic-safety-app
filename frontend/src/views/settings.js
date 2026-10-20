@@ -173,7 +173,7 @@ export function settingsView({ openAdmin, openFamily, devWalk }) {
     <div class="section">
       <div class="app-icon-hero">
         <div class="app-icon">${icon('warningFill')}</div>
-        <div class="t-headline">路口安全通</div>
+        <div class="t-headline">有路安</div>
         <div class="t-footnote c-2">版本 0.1.0（${isNative() ? 'Android App' : '網頁版'}）</div>
       </div>
       <div class="card t-footnote c-2" style="margin-top:12px;line-height:1.6">
@@ -307,7 +307,7 @@ export function settingsView({ openAdmin, openFamily, devWalk }) {
     if (e.target.closest('[data-admin]')) openAdmin()
     if (e.target.closest('[data-family]')) openFamily()
     if (e.target.closest('[data-gmode]')) pickMode()
-    if (e.target.closest('[data-overlay]')) requestOverlay().then((r) => { if (r?.allowed) toast('靈動島提醒已開啟', { icon: 'sparkles', color: '#000' }); else toast('請在接下來的頁面開啟「路口安全通」的權限，再回到 App', { icon: 'sparkles', color: '#000', ms: 5000 }) }).catch((err) => toastError(err.message))
+    if (e.target.closest('[data-overlay]')) requestOverlay().then((r) => { if (r?.allowed) toast('靈動島提醒已開啟', { icon: 'sparkles', color: '#000' }); else toast('請在接下來的頁面開啟「有路安」的權限，再回到 App', { icon: 'sparkles', color: '#000', ms: 5000 }) }).catch((err) => toastError(err.message))
     if (e.target.closest('[data-gtest]')) testGuardianAlert().then(() => toast('已送出測試通知，請看螢幕上方', { icon: 'shield', color: 'var(--blue)' })).catch((err) => toastError(err.message || '無法送出通知'))
   })
   $('.srv', p.el).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.target.blur(); test(true) } })
