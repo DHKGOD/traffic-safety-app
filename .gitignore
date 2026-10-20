@@ -36,6 +36,7 @@ ai/models/*.joblib
 .DS_Store
 Thumbs.db
 .claude/settings.local.json
+.claude/*.lock
 .playwright-mcp/
 dist/
 frontend/test-results/

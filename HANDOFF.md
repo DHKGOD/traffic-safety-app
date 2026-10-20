@@ -8,7 +8,7 @@
 |---|---|---|---|
 | 1 | **Windows 防火牆開放 TCP 8000**（手機走 Wi-Fi 連電腦需要；目前用 USB `adb reverse` 代替） | 系統管理員 PowerShell：`New-NetFirewallRule -DisplayName "交通安全App API 8000" -Direction Inbound -Protocol TCP -LocalPort 8000 -RemoteAddress LocalSubnet -Action Allow -Profile Any`，之後 App 設定頁改成 `192.168.1.108:8000`。**另外 Avast 防火牆要把 Wi-Fi「0420tutu 2」設為「信任」**（否則手機連不到） | ✅ 完成（2026-10-20 手機 Wi-Fi 實測 `/api/health` ok） |
 | 2 | **氣象署開放資料授權碼**（雨天模式自動切換、天候風險 AI） | https://opendata.cwa.gov.tw 註冊登入 →「取得授權碼」→ `.env` 加一行 `CWA_API_KEY=...` | 未完成 |
-| 3 | **GitHub 遠端倉庫**（課程要求） | 決定公開或私人：`gh repo create traffic-safety-app --private --source . --push` | 未完成 |
+| 3 | **GitHub 遠端倉庫**（課程要求） | 使用者決定公開 → 已建立 https://github.com/DHKGOD/traffic-safety-app 並推送 main（推送前已掃描歷史：無 .env、無金鑰、無大檔） | ✅ 完成（2026-10-20） |
 | 4 | **在手機開啟「靈動島懸浮提醒」**（背景守護在其他 App 上顯示提醒） | App →「設定」→「靈動島懸浮提醒」→ 系統頁面開啟「路口安全通」。（測試期間我已用 adb 暫時開啟；通知、定位權限也是用 adb 授予，正式展示前建議在手機上重新確認一次） | 已用 adb 開啟（測試用） |
 | 5 | （選用）三星通知彈出樣式 | 手機「設定 → 通知 → 通知彈出樣式」改「詳細」，系統通知也會彈出完整橫幅；不改也沒關係，靈動島會提醒 | 選用 |
 | 6 | （選用）Google 地圖底圖 | 需 Google Cloud 綁信用卡（付費）；目前用免費 OpenFreeMap 向量地圖，不需要 | 不需要 |

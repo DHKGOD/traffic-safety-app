@@ -4,6 +4,8 @@
 
 > 依官方歷史事故統計提醒注意，不保證路況安全。
 
+GitHub：https://github.com/DHKGOD/traffic-safety-app
+
 | 部分 | 技術 |
 |---|---|
 | 資料庫 | PostgreSQL 18 ＋ PostGIS 3.6（資料目錄在專案內 `db/pgdata`，模擬雲端） |
