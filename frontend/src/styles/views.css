@@ -39,8 +39,8 @@
 .sheet-ctrls .fab-round { border-radius: 50%; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18); border: 0.5px solid var(--glass-border); }
 .sheet-ctrls .fab-round.on { background: var(--blue); color: #fff; }
 /* 地圖左下角的 App 名稱（像 Google 地圖的「Google Maps」字樣，改用 Apple 風格的圓體粗字） */
-.ctrl-left { display: flex; align-items: flex-end; gap: 10px; }
-.map-brand { display: flex; flex-direction: column; gap: 1px; padding-bottom: 2px; pointer-events: none; }
+.map-brand { pointer-events: none; padding: 0 0 4px 6px; }
+.fab-capsule .fab-guard.on { background: var(--blue); color: #fff; }
 /* 參考 Google 地圖的字樣：小、半粗；淺色地圖用灰字白邊，深色地圖用淺字深邊 */
 .mb-t {
   font-family: var(--font-rounded); font-size: 16px; font-weight: 600; letter-spacing: 0.06em; line-height: 1;

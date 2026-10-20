@@ -50,15 +50,11 @@ export function mapView({ openReport, openSubmit, startWalk }) {
       </button>
       <div class="sheet-clip"><div class="sheet">
         <div class="sheet-ctrls">
-          <div class="ctrl-left">
-            <button class="fab fab-round" data-act="guardian" aria-label="背景守護模式">${icon('shield')}</button>
-            <div class="map-brand" aria-label="有路安">
-              <span class="mb-t">有路安</span>
-            </div>
-          </div>
+          <div class="map-brand" aria-label="有路安"><span class="mb-t">有路安</span></div>
           <div class="fab-capsule">
             <button class="fab" data-act="fit" aria-label="顯示整條路線">${icon('map')}</button>
             <button class="fab" data-act="locate" aria-label="我的位置">${icon('location')}</button>
+            <button class="fab fab-guard" data-act="guardian" aria-label="背景守護模式">${icon('shield')}</button>
           </div>
         </div>
         <div class="sheet-grabber"></div>
