@@ -115,6 +115,10 @@ def start() -> None:
         log = API_LOG.open("a", encoding="utf-8")
         cmd = [sys.executable, "-m", "uvicorn", "backend.app.main:app", "--host", host, "--port", port,
                "--proxy-headers"]
+        if os.name == "nt":
+            # Python 3.11 Proactor 的 accept 遇到 WinError 64 會關閉監聽 socket，
+            # 程序仍活著但所有新連線被拒絕。只為 Windows 本機 API 指定 Selector。
+            cmd += ["--loop", "backend.app.runtime:windows_selector_loop"]
         kw: dict = {"cwd": ROOT, "stdout": log, "stderr": subprocess.STDOUT, "stdin": subprocess.DEVNULL}
         if os.name == "nt":
             kw["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]

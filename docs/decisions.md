@@ -92,3 +92,12 @@
 | W4 | 規則：1 小時雨量 ≥ 0.5 mm 或目前時段降雨機率 ≥ 60% → 雨天模式，否則晴天模式 | 0.5 mm 是氣象上「有降雨」的常用門檻；60% 是「很可能下雨」 |
 | W5 | 「自動」預設關閉，使用者選了才開，記在手機；手動選其他天候即關閉 | 不改變原本預設畫面（全部天候）；使用者明確知道目前是自動 |
 | W6 | 只在已有定位權限時用 GPS，否則用路線起點 | 不在打開 App 時跳出權限詢問；平板沒 GPS 也能用 |
+
+## 2026-10-20 Codex 實測修復
+
+| # | 決策 | 理由 |
+|---|---|---|
+| Q2 | `/api/hotspots/near?complete=true` 回傳半徑內全部候選（半徑上限仍為 5km），供範圍預覽與背景守護使用；一般排行維持 limit | 台北車站 500m 實有 23 處，但取 5km 前 200 名後只剩 8 處；守護 3km 前 200 名也漏掉 118.6m 外的路口。完整 3km 候選實測 506 處、約 0.5 秒 |
+| T2 | Windows 的 `scripts/server.py` 明確指定 Uvicorn 自訂 Selector 迴圈；其他平台不改 | 實測 Python 3.11 Proactor 的 accept 發生 WinError 64 後關閉監聽 socket，程序仍在但新連線全部被拒絕。修正後實測 200 次 TCP RST＋100 次 health 查詢成功。只影響 API 行程，不改系統設定 |
+
+事件迴圈參考：[Uvicorn 自訂迴圈](https://uvicorn.dev/concepts/event-loop/)、[Python 3.11 平台限制](https://docs.python.org/3.11/library/asyncio-platforms.html)。Windows Selector 僅支援 socket、最多 512 個，適用目前本機課程展示；未使用 asyncio 子程序。雲端 Linux 繼續使用原本的自動迴圈選擇。

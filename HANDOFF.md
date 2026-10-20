@@ -11,6 +11,8 @@
 - 回歸證據：新增後端測試修正前 2 項失敗、修正後 pytest 50 passed（含 PostGIS 與替代查詢）；新增／加強兩個瀏覽器情境，舊版皆失敗。Java 邏輯測試 8 passed。
 - 額外畫面驗證：台北車站 500m 預覽與清單皆為 23 處（舊預覽只有 8）；定位移到台中後重新查詢新座標。3km 守護完整資料有 506 處，包含先前漏掉的 ID 8318。
 - 完整 E2E 與新版 APK 驗證進行中。擱置的 App 更新四個檔案及 `update/` 原封保留，不會包含在本次 commit 或乾淨 APK 中。
+- 修復提交 `84b006e`；APK 已以乾淨提交建置並覆蓋安裝 S21 FE（保留資料），裝置 APK 與本機 SHA-256 一致，啟動 Status ok。Android lint 0 errors／26 warnings；手機鎖定，UI／背景提醒尚未實機驗證。
+- 第一輪完整 E2E 的前 21 項通過，但 Windows Python 3.11 Proactor 遇 WinError 64 後關閉監聽 socket，最後 3 項連線被拒絕（程序仍在，見 `logs/codex-fix-e2e-attempt1.txt` 與 `logs/api.log`）。已將 Windows 的一鍵啟動改為 Uvicorn 自訂 Selector 迴圈（`backend/app/runtime.py`），Linux 保留原行為。pytest 現為 51 passed，含客戶端 RST 連線回歸；運行中 API 另完成 200 次 TCP RST＋100 次 health 查詢全數成功。正在重跑完整 E2E。
 - 測試紀錄在 `logs/codex-fix-e2e-20261020.txt`、`logs/codex-fixed-probe-result.txt`；修復前證據見 `logs/codex-test-report-20261020.md`。手機仍鎖定，尚未宣稱實機驗證完成。
 
 ## 🔴 待我處理（只有使用者能做）

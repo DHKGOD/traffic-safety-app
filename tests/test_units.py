@@ -1,11 +1,64 @@
 """不需要資料庫的單元測試。"""
 from __future__ import annotations
 
+import asyncio
 import math
 import random
+import sys
 
 from backend.app.geo import RouteIndex, haversine, project
 from scripts.build_hotspots import clean_name
+
+
+def test_api_selector_loop_survives_reset_connections():
+    """經 Uvicorn 載入正式迴圈，模擬客戶端中斷後仍能接受下一條連線。"""
+    import socket
+    import struct
+
+    import uvicorn
+
+    async def exercise():
+        async def serve(reader, writer):
+            try:
+                if await reader.read(1):
+                    writer.write(b"ok")
+                    await writer.drain()
+            except (ConnectionError, OSError):
+                pass
+            finally:
+                writer.close()
+                try:
+                    await writer.wait_closed()
+                except (ConnectionError, OSError):
+                    pass
+
+        server = await asyncio.start_server(serve, "127.0.0.1", 0)
+        port = server.sockets[0].getsockname()[1]
+        try:
+            for _ in range(30):
+                s = socket.create_connection(("127.0.0.1", port))
+                # SO_LINGER=0 以 RST 中止，觸發真實的異常連線處理路徑。
+                linger = struct.pack("hh" if sys.platform == "win32" else "ii", 1, 0)
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, linger)
+                s.close()
+                await asyncio.sleep(0.002)
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+            writer.write(b"x")
+            await writer.drain()
+            assert await asyncio.wait_for(reader.read(2), 3) == b"ok"
+            writer.close()
+            await writer.wait_closed()
+        finally:
+            server.close()
+            await server.wait_closed()
+
+    factory = uvicorn.Config("backend.app.main:app", loop="backend.app.runtime:windows_selector_loop").get_loop_factory()
+    loop = factory()
+    try:
+        assert isinstance(loop, asyncio.SelectorEventLoop)
+        loop.run_until_complete(exercise())
+    finally:
+        loop.close()
 
 
 def brute(route, lat, lon):
