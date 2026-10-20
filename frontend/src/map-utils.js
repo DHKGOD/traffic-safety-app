@@ -100,9 +100,10 @@ export const walkerIcon = () => L.divIcon({ className: '', html: '<div class="wa
 /** 路線（Apple 地圖風格）：淡陰影＋深藍外框＋亮藍中心，比單色線更有「導航」感。 */
 export function drawRoute(map, points) {
   const opt = { lineCap: 'round', lineJoin: 'round', interactive: false }
-  const shadow = L.polyline(points, { ...opt, color: '#000', weight: 17, opacity: 0.1, className: 'route-shadow' })
-  const casing = L.polyline(points, { ...opt, color: '#1d5fd1', weight: 12, opacity: 1 })
-  const line = L.polyline(points, { ...opt, color: '#4b9dff', weight: 7.5, opacity: 1 })
+  // 半透明：底下的道路與路名會透出來（使用者回饋：太深像畫上去的線）
+  const shadow = L.polyline(points, { ...opt, color: '#000', weight: 17, opacity: 0.06, className: 'route-shadow' })
+  const casing = L.polyline(points, { ...opt, color: '#1d5fd1', weight: 12, opacity: 0.5 })
+  const line = L.polyline(points, { ...opt, color: '#4b9dff', weight: 7.5, opacity: 0.7 })
   return L.featureGroup([shadow, casing, line]).addTo(map)
 }
 
