@@ -7,7 +7,7 @@
 | # | 事項 | 怎麼做 | 狀態 |
 |---|---|---|---|
 | 1 | **Windows 防火牆開放 TCP 8000**（手機走 Wi-Fi 連電腦需要；目前用 USB `adb reverse` 代替） | 系統管理員 PowerShell：`New-NetFirewallRule -DisplayName "交通安全App API 8000" -Direction Inbound -Protocol TCP -LocalPort 8000 -RemoteAddress LocalSubnet -Action Allow -Profile Any`，之後 App 設定頁改成 `192.168.1.108:8000`。**另外 Avast 防火牆要把 Wi-Fi「0420tutu 2」設為「信任」**（否則手機連不到） | ✅ 完成（2026-10-20 手機 Wi-Fi 實測 `/api/health` ok） |
-| 2 | **氣象署開放資料授權碼**（雨天模式自動切換、天候風險 AI） | https://opendata.cwa.gov.tw 註冊登入 →「取得授權碼」→ `.env` 加一行 `CWA_API_KEY=...` | 未完成 |
+| 2 | **氣象署開放資料授權碼**（雨天模式自動切換、天候風險 AI） | https://opendata.cwa.gov.tw 註冊登入 →「取得授權碼」→ `.env` 加一行 `CWA_API_KEY=...` | ✅ 完成（2026-10-20，格式與 API 呼叫皆驗證） |
 | 3 | **GitHub 遠端倉庫**（課程要求） | 使用者決定公開 → 已建立 https://github.com/DHKGOD/traffic-safety-app 並推送 main（推送前已掃描歷史：無 .env、無金鑰、無大檔） | ✅ 完成（2026-10-20） |
 | 4 | **在手機開啟「靈動島懸浮提醒」**（背景守護在其他 App 上顯示提醒） | App →「設定」→「靈動島懸浮提醒」→ 系統頁面開啟「路口安全通」。（測試期間我已用 adb 暫時開啟；通知、定位權限也是用 adb 授予，正式展示前建議在手機上重新確認一次） | 已用 adb 開啟（測試用） |
 | 5 | （選用）三星通知彈出樣式 | 手機「設定 → 通知 → 通知彈出樣式」改「詳細」，系統通知也會彈出完整橫幅；不改也沒關係，靈動島會提醒 | 選用 |
@@ -27,7 +27,8 @@
 - ✅ Codex 撰寫匯入腳本單元測試 tests/test_import.py（Claude 審查後 commit）；Codex 發現 to_int("inf") 會中斷匯入 → 已修正，to_float 也排除 inf/nan
 - ✅ Codex 交叉審查第 2、3 次（合計 12 項，11 項成立已修正，1 項經查證不成立）
 - ✅ 危險路口合併改良（同一路口被格線切開的問題）
-- ⬜ 氣象署雨天模式（需授權碼）
+- ✅ 氣象署天候自動模式（`/api/weather/now`：O-A0002-001 最近雨量站＋F-D0047 鄉鎮 3 小時降雨機率；地圖／排行的天候膠囊多「自動」）
+- ⬜ AI 任務 2：天候風險用測站降雨時數校正
 
 ## 最後完成的事情
 
@@ -53,10 +54,7 @@
 ## 下一步（可直接開始）
 
 1. **手機解鎖後重跑實機巡檢**（最後一輪因手機螢幕鎖定未跑）：`adb reverse tcp:8000 tcp:8000`，`uv run python scripts/phone_tour.py`，預期 22 步、JS 錯誤 0。
-2. **氣象署雨天模式**（等使用者提供 `CWA_API_KEY`；拿到後先實際呼叫 API 看回傳格式再寫程式，不要憑記憶猜格式）：
-   - 後端 `backend/app/routers/weather.py`：`GET /api/weather/now?lat&lon` → 自動氣象站即時觀測（O-A0001-001 或 O-A0003-001）找最近測站的「過去 1 小時雨量」；鄉鎮預報（F-D0047 系列）取未來 3 小時降雨機率。結果快取 10 分鐘。沒有授權碼時回 `{available:false}`，前端隱藏功能。
-   - 前端：地圖膠囊列加「自動」天候選項；下雨或降雨機率 ≥ 60% 時自動切換雨天模式並提示。
-   - AI 任務 2（天候風險校正）：取得測站每日／每小時雨量，計算各行政區「下雨時數占比」，雨天風險倍數 = (雨天事故占比) ÷ (下雨時數占比)，取代全國雨天比例；結果寫進 hotspot 或新表，報告頁顯示「下雨時事故風險是平常的 N 倍」。
+2. **AI 任務 2（天候風險校正）**（天候自動模式已完成；氣象署 API 格式實測紀錄見 `backend/app/routers/weather.py` 開頭與 FORECAST_DATASET）：先查氣象署有無 2026 年逐日／逐時雨量的 API 資料集（不要憑記憶猜，實際呼叫確認）；取得測站每日／每小時雨量，計算各行政區「下雨時數占比」，雨天風險倍數 = (雨天事故占比) ÷ (下雨時數占比)，取代全國雨天比例；結果寫進 hotspot 或新表，報告頁顯示「下雨時事故風險是平常的 N 倍」。
 3. （選用）背景守護改進：Activity Recognition 區分搭車與開車（需 ACTIVITY_RECOGNITION 權限）。
 4. （選用）錄 Demo 影片：S21 FE 螢幕錄影「規劃路線 → 開背景守護模擬 → 切到 Google 地圖 → 靈動島提醒跳出」。
 
@@ -81,8 +79,8 @@
 |---|---|---|
 | 啟動 | 雙擊 `start_server.bat` | 印出本機與區網網址 |
 | 筆數 | `uv run python scripts/db_report.py` | accident 284,116；party 640,620 |
-| 後端測試 | `uv run pytest` | 43 passed |
-| 端對端測試 | `powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1` | 16 passed（約 2 分鐘） |
+| 後端測試 | `uv run pytest` | 47 passed |
+| 端對端測試 | `powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1` | 18 passed（約 2.5 分鐘） |
 | 實機巡檢 | 手機接 USB、`adb reverse tcp:8000 tcp:8000`、`uv run python scripts/phone_tour.py` | 20 步驟、JS 錯誤 0，截圖在 `logs/phone_tour/` |
 | 守護邏輯 | `powershell -ExecutionPolicy Bypass -File scripts\test_guardian.ps1` | OK (7 tests) |
 | 守護實機 | 手機接 USB、`uv run python scripts/guardian_device_test.py 60` | 收到提醒且偵測到靈動島截圖（logs/guardian_test/banner_*.png） |

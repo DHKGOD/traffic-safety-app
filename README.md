@@ -21,6 +21,7 @@ GitHub：https://github.com/DHKGOD/traffic-safety-app
 |---|---|
 | 路線上的危險路口 | Demo 路線輔大 → 新莊捷運站；也可搜尋任意起訖點（例：台北車站 → 苗栗車站），步行／自行車／汽機車 |
 | 晴天／雨天、時段模式 | 依事故發生時的天候與時段篩選危險路口（iOS 動作表切換） |
+| **天候自動模式** | 後端代查中央氣象署（最近自動雨量站的過去 1 小時雨量＋鄉鎮 3 小時降雨機率），下雨或降雨機率 ≥ 60% 自動切到雨天模式；每 10 分鐘更新。授權碼只放伺服器 `.env` 的 `CWA_API_KEY`，沒設定時 App 自動隱藏此選項 |
 | 路口體檢報告 | 事故數、受傷、雨天與夜間占比、24 小時分布、主要肇因、事故型態、車種、年齡、改善建議、附近回報；可匯出 HTML（列印成 PDF） |
 | **AI 情境預測** | 選天候、時段、交通工具、年齡，預測這個路口最可能的事故肇因與提醒；每次預測記錄模型版本（[測試結果](docs/ai-report.md)） |
 | 模擬行走 | 藍點沿路線移動，接近危險路口時語音＋提示音＋紅框（平板沒有 GPS 也能展示） |
@@ -84,7 +85,7 @@ uv run python ai/train_cause_model.py   # 重新訓練 AI（約 2 分鐘，寫�
 | 測試 | 指令 | 內容 |
 |---|---|---|
 | 後端＋資料處理 | `uv run pytest` | 43 項：API、PostGIS 與替代查詢一致、回報、路線分享、AI、匯入純函式、路口合併 |
-| 端對端（模擬真人操作） | `powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1` | 16 項：Playwright 手機尺寸＋平板橫式，實際點完每個功能（結束後自動清除測試資料） |
+| 端對端（模擬真人操作） | `powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1` | 18 項：Playwright 手機尺寸＋平板橫式，實際點完每個功能（結束後自動清除測試資料） |
 | 守護模式邏輯（Java） | `powershell -ExecutionPolicy Bypass -File scripts\test_guardian.ps1` | 7 項：提醒距離、接近判斷、冷卻、搭車靜音、長輩模式 |
 | 實機巡檢（S21 FE） | `adb reverse tcp:8000 tcp:8000` 後 `uv run python scripts/phone_tour.py` | 自動點過 22 個畫面、收集 JS 錯誤、截圖到 `logs/phone_tour/` |
 | 實機背景守護 | `uv run python scripts/guardian_device_test.py 60` | 開始路線模擬 → 回到桌面 → 確認提醒與靈動島截圖 |

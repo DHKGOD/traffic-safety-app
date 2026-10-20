@@ -3,7 +3,8 @@ import { Geolocation } from '@capacitor/geolocation'
 import { api } from '../api.js'
 import { icon } from '../icons.js'
 import { L, createMap, drawRoute, hotspotIcon, meIcon, pinIcon, reportIcon } from '../map-utils.js'
-import { DEMO, MODE_LABEL, PERIOD_HINT, PERIOD_OPTS, WEATHER_OPTS, emit, on, setMode, setRoute, state } from '../store.js'
+import { DEMO, MODE_LABEL, PERIOD_HINT, PERIOD_OPTS, emit, on, setMode, setRoute, state } from '../store.js'
+import { pickWeather, renderWeatherChip } from '../weather.js'
 import { $, $$, LEVEL, actionSheet, disclaimer, el, emptyState, esc, fmt, haptic, skeletonList, toast, toastError } from '../ui.js'
 import { guardianAvailable, guardianState, overlayAllowed, startGuardian, stopGuardian } from '../guardian.js'
 import { openPlanner } from './planner.js'
@@ -71,10 +72,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
   function renderHeader() {
     const r = state.route
     $('.route-q', page).innerHTML = `${esc(r.start.name)} → ${esc(r.end.name)} <small>・${icon(MODE_ICON[r.mode] || 'walk')} ${fmt.dist(r.distance_m)}</small>`
-    const w = WEATHER_OPTS.find((o) => o.value === state.weather)
-    const wc = $('[data-act="weather"]', page)
-    wc.className = `chip${state.weather !== 'all' ? ' on' : ''}${state.weather === 'rain' ? ' rain' : ''}`
-    wc.innerHTML = `${icon(state.weather === 'rain' ? 'rain' : 'sun')}${state.weather === 'all' ? '全部天候' : w.label}<span class="caret">${icon('chevronDown')}</span>`
+    renderWeatherChip($('[data-act="weather"]', page))
     const pc = $('[data-act="period"]', page)
     pc.className = `chip${state.period !== 'all' ? ' on' : ''}`
     pc.innerHTML = `${icon(state.period === 'night' ? 'moon' : 'clock')}${PERIOD_HINT[state.period]}<span class="caret">${icon('chevronDown')}</span>`
@@ -193,12 +191,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     if (act === 'plan') return openPlanner()
     if (act === 'guardian') return guardianMenu()
     if (act === 'demo') return setRoute(DEMO)
-    if (act === 'weather') {
-      const v = await actionSheet({ title: '天候模式', message: '依事故發生時的天候篩選危險路口', value: state.weather,
-        options: [{ value: 'all', label: '全部天候' }, { value: 'clear', label: '晴天／陰天', icon: 'sun' }, { value: 'rain', label: '雨天', icon: 'rain' }] })
-      if (v && v !== state.weather) setMode({ weather: v })
-      return
-    }
+    if (act === 'weather') return pickWeather()
     if (act === 'period') {
       const v = await actionSheet({ title: '時段模式', message: '依事故發生的時段篩選危險路口', value: state.period,
         options: PERIOD_OPTS.map((o) => ({ value: o.value, label: o.value === 'all' ? '全天' : `${o.label}（${PERIOD_HINT[o.value]}）` })) })

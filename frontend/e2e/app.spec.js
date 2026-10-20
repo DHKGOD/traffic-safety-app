@@ -78,6 +78,58 @@ test('天候與時段模式（iOS 動作表）', async ({ page }) => {
   await expect(page.locator('[data-root="map"] [data-act="period"]')).toContainText('6–9 點')
 })
 
+const RAINY = {
+  available: true, suggested_mode: 'rain', reason: '附近測站過去 1 小時雨量 3.5 mm', raining: true,
+  rain_1h_mm: 3.5, pop_percent: 80,
+  station: { name: '新莊', id: 'C0ACA0', county: '新北市', town: '新莊區', distance_km: 2.3, obs_time: '2026-10-20T08:30:00+08:00' },
+  forecast: { start: '2026-10-20T06:00:00+08:00', end: '2026-10-20T09:00:00+08:00', pop: 80, weather: '短暫陣雨', next: null },
+  thresholds: { rain_mm: 0.5, pop_percent: 60 }, source: '中央氣象署開放資料',
+}
+
+test('天候自動模式：附近下雨時自動切到雨天，手動選擇會關閉自動', async ({ page }) => {
+  let weather = RAINY
+  await page.route('**/api/weather/now?**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(weather) }))
+  await openApp(page)
+  const chip = page.locator('[data-root="map"] [data-act="weather"]')
+  const before = Number((await page.locator('.s-acc').textContent()).replace(/,/g, ''))
+  await chip.click()
+  await expect(page.locator('.as-title small')).toContainText('新莊區 短暫陣雨・降雨機率 80%・1 小時雨量 3.5 mm')
+  await page.locator('.as-btn', { hasText: '自動' }).click()
+  await expect(chip).toContainText('自動・雨天')
+  await expect(chip).toHaveClass(/rain/)
+  await expect(page.locator('.toast', { hasText: '已切換雨天模式' })).toBeVisible()
+  await expect(page.locator('.hs-list .skeleton')).toHaveCount(0)
+  expect(Number((await page.locator('.s-acc').textContent()).replace(/,/g, ''))).toBeLessThan(before)
+  // 排行頁同步顯示自動
+  await page.locator('[data-tab="rank"]').click()
+  await expect(page.locator('[data-root="rank"] [data-act="weather"]')).toContainText('自動・雨天')
+  await page.locator('[data-tab="map"]').click()
+  // 重新開啟 App：自動模式要保留，且依最新天氣（雨停）切到晴天
+  weather = { ...RAINY, suggested_mode: 'clear', reason: '附近沒有下雨，降雨機率 10%', raining: false, rain_1h_mm: 0, pop_percent: 10,
+    forecast: { ...RAINY.forecast, pop: 10, weather: '多雲' } }
+  await page.reload()
+  await expect(chip).toContainText('自動・晴天')
+  // 手動選「全部天候」→ 關閉自動
+  await chip.click()
+  await expect(page.locator('.as-btn.sel')).toContainText('自動')
+  await page.locator('.as-btn', { hasText: '全部天候' }).click()
+  await expect(chip).toHaveText(/^全部天候/)
+  await expect(chip).not.toHaveClass(/on/)
+  await page.reload()
+  await expect(chip).toHaveText(/^全部天候/)
+})
+
+test('天候自動模式：伺服器沒有氣象署授權碼時不顯示「自動」', async ({ page }) => {
+  await page.route('**/api/weather/now?**', (r) => r.fulfill({ status: 200, contentType: 'application/json',
+    body: JSON.stringify({ available: false, reason: '伺服器未設定氣象署授權碼' }) }))
+  await openApp(page)
+  await page.waitForTimeout(500)
+  await page.locator('[data-root="map"] [data-act="weather"]').click()
+  await expect(page.locator('.as-btn', { hasText: '雨天' })).toBeVisible()
+  await expect(page.locator('.as-btn', { hasText: '自動' })).toHaveCount(0)
+  await expect(page.locator('.as-title small')).toHaveText('依事故發生時的天候篩選危險路口')
+})
+
 test('路口體檢報告：圖表、建議、匯出、返回', async ({ page }) => {
   await openApp(page)
   const first = page.locator('.hs-list .hs-cell').first()

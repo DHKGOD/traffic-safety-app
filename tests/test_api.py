@@ -127,5 +127,44 @@ def test_share_code_guessing_is_throttled(client):
         routes._fails.clear()
 
 
+def test_weather_now(client, monkeypatch):
+    """即時天氣：有授權碼時回傳最近測站與建議模式；沒有授權碼時 available=false。"""
+    from backend.app.config import settings
+    from backend.app.routers import weather
+
+    r = client.get("/api/weather/now", params={"lat": FJU[0], "lon": FJU[1]})
+    if settings.cwa_api_key:
+        if r.status_code == 502:
+            pytest.skip("氣象署服務暫時無法連線")
+        d = r.json()
+        assert d["available"] is True and d["suggested_mode"] in ("rain", "clear")
+        assert d["station"]["county"] == "新北市" and d["station"]["distance_km"] < weather.MAX_STATION_KM
+        assert d["forecast"] is None or 0 <= d["forecast"]["pop"] <= 100
+    monkeypatch.setattr(weather, "settings", type("S", (), {"cwa_api_key": ""})())
+    assert client.get("/api/weather/now", params={"lat": FJU[0], "lon": FJU[1]}).json() == {
+        "available": False, "reason": "伺服器未設定氣象署授權碼"}
+    assert client.get("/api/weather/now", params={"lat": 0, "lon": 0}).status_code == 422
+
+
+def test_weather_decision(monkeypatch):
+    """建議規則：雨量 ≥ 0.5 mm 或降雨機率 ≥ 60% → 雨天；負值（氣象署無資料代碼）不算下雨。"""
+    from backend.app.routers import weather
+
+    assert weather._num("-998") is None and weather._num("X") is None and weather._num("2.5") == 2.5
+    st = {"name": "新莊", "id": "C0ACA0", "lat": 25.05, "lon": 121.44, "county": "新北市", "town": "新莊區",
+          "obs_time": "t", "rain_1h": 0.0, "rain_3h": 0.0}
+    monkeypatch.setattr(weather, "settings", type("S", (), {"cwa_api_key": "x"})())
+    cases = [(0.0, 10, "clear"), (0.5, 0, "rain"), (0.0, 60, "rain"), (None, 20, "clear"), (None, None, "clear")]
+    for rain, pop, want in cases:
+        monkeypatch.setattr(weather, "_stations", lambda: [{**st, "rain_1h": rain}])
+        monkeypatch.setattr(weather, "_forecast", lambda c, t: None if pop is None else {"pop": pop, "weather": "x"})
+        assert weather.weather_now(25.0363, 121.4318)["suggested_mode"] == want, (rain, pop)
+    # 最近測站太遠 → 不採用即時雨量
+    monkeypatch.setattr(weather, "_stations", lambda: [{**st, "lat": 24.0, "rain_1h": 9.0}])
+    monkeypatch.setattr(weather, "_forecast", lambda c, t: {"pop": 0, "weather": "晴"})
+    d = weather.weather_now(25.0363, 121.4318)
+    assert d["rain_1h_mm"] is None and d["suggested_mode"] == "clear"
+
+
 def test_report_validation(client):
     assert client.post("/api/reports", json={"lat": 0, "lon": 0}).status_code == 422

@@ -18,6 +18,7 @@ import { applyTheme, savedTheme, settingsView, testServer } from './views/settin
 import { openSubmit } from './views/submit.js'
 import { startWalk } from './walk.js'
 import { initGuardian } from './guardian.js'
+import { initWeather } from './weather.js'
 import { applyElderMode } from './family.js'
 import { familyView } from './views/family.js'
 
@@ -155,3 +156,4 @@ function onboarding() {
 initGuardian().catch(() => { /* 網頁版或外掛未載入 */ })
 if (!getServer()) onboarding()
 else startPolling()
+initWeather() // 伺服器變更時會自動重查

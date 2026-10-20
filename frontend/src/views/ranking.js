@@ -3,6 +3,7 @@ import { api } from '../api.js'
 import { icon } from '../icons.js'
 import { PERIOD_HINT, PERIOD_OPTS, WEATHER_OPTS, on, setMode, state } from '../store.js'
 import { $, LEVEL, actionSheet, disclaimer, emptyState, esc, makePage, segmented, skeletonList } from '../ui.js'
+import { pickWeather, renderWeatherChip } from '../weather.js'
 
 const SCOPES = [
   { value: '新莊區', label: '新莊區' },
@@ -27,9 +28,7 @@ export function rankingView({ openReport }) {
   let rows = []
 
   function renderChips() {
-    const wc = $('[data-act="weather"]', p.el)
-    wc.className = `chip${state.weather !== 'all' ? ' on' : ''}${state.weather === 'rain' ? ' rain' : ''}`
-    wc.innerHTML = `${icon(state.weather === 'rain' ? 'rain' : 'sun')}${state.weather === 'all' ? '全部天候' : WEATHER_OPTS.find((o) => o.value === state.weather).label}<span class="caret">${icon('chevronDown')}</span>`
+    renderWeatherChip($('[data-act="weather"]', p.el))
     const pc = $('[data-act="period"]', p.el)
     pc.className = `chip${state.period !== 'all' ? ' on' : ''}`
     pc.innerHTML = `${icon(state.period === 'night' ? 'moon' : 'clock')}${PERIOD_HINT[state.period]}<span class="caret">${icon('chevronDown')}</span>`
@@ -64,11 +63,7 @@ export function rankingView({ openReport }) {
     const c = e.target.closest('.hs-cell')
     if (c) return openReport(rows.find((r) => r.id === +c.dataset.id), '排行')
     const act = e.target.closest('[data-act]')?.dataset.act
-    if (act === 'weather') {
-      const v = await actionSheet({ title: '天候模式', value: state.weather,
-        options: [{ value: 'all', label: '全部天候' }, { value: 'clear', label: '晴天／陰天', icon: 'sun' }, { value: 'rain', label: '雨天', icon: 'rain' }] })
-      if (v && v !== state.weather) setMode({ weather: v })
-    }
+    if (act === 'weather') pickWeather()
     if (act === 'period') {
       const v = await actionSheet({ title: '時段模式', value: state.period,
         options: PERIOD_OPTS.map((o) => ({ value: o.value, label: o.value === 'all' ? '全天' : `${o.label}（${PERIOD_HINT[o.value]}）` })) })

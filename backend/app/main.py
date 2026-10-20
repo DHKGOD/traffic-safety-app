@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .db import db
-from .routers import ai, geo, hotspots, reports, routes, system
+from .routers import ai, geo, hotspots, reports, routes, system, weather
 
 
 @asynccontextmanager
@@ -31,6 +31,7 @@ app.include_router(reports.router)
 app.include_router(ai.router)
 app.include_router(geo.router)
 app.include_router(routes.router)
+app.include_router(weather.router)
 
 # 同一個伺服器也提供網頁版前端（電腦用瀏覽器開 http://<IP>:8000/）
 if settings.frontend_dir.exists():
