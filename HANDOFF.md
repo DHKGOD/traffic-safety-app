@@ -15,6 +15,14 @@
 - 第一輪完整 E2E 的前 21 項通過，但 Windows Python 3.11 Proactor 遇 WinError 64 後關閉監聽 socket，最後 3 項連線被拒絕（程序仍在，見 `logs/codex-fix-e2e-attempt1.txt` 與 `logs/api.log`）。已將 Windows 的一鍵啟動改為 Uvicorn 自訂 Selector 迴圈（`backend/app/runtime.py`），Linux 保留原行為。pytest 含客戶端 RST 連線回歸；運行中 API 另完成 200 次 TCP RST＋100 次 health 查詢全數成功，修正後完整 E2E 全數通過。
 - 測試紀錄在 `logs/codex-fix-e2e-20261020.txt`、`logs/codex-fixed-probe-result.txt`；修復前證據見 `logs/codex-test-report-20261020.md`。手機仍鎖定，尚未宣稱實機驗證完成。
 
+## Claude 實機測試進度（2026-10-20 17:00 之後）
+
+- 手機解鎖時跑完實機巡檢（新版 29 步）：**JS 錯誤 0**。發現並修正（commit 見 `git log`，「實機修正：底圖網路瞬斷…」）：
+  1. **底圖整片空白**：手機連 `tiles.openfreemap.org/planet` 曾瞬斷（ERR_CONNECTION_ABORTED／NAME_NOT_RESOLVED），MapLibre 不會自己恢復 → `map-utils.js` 加自動重試（2、4、8… 秒，網路恢復立刻重試）；E2E 加「底圖網路瞬斷」測試。
+  2. **S21 FE 實際 CSS 尺寸是 360×780**（不是 412×892）：抽屜間距、快捷圓鈕改小，摘要卡文字縮短不換行；整條路線的下方留白改依抽屜實際高度計算；`playwright.config.js` 手機尺寸改 360×780。**之後 UI 截圖請用 360×780。**
+- 完整 E2E 25 項：24 過，「規劃路線…苗栗車站」一次失敗、單獨重跑通過（依賴外部 Nominatim 搜尋，偶發）。
+- 新版 APK 已用 `build_apk_clean.ps1` 安裝；**之後手機又鎖定**，以下尚未在手機上做：新版 APK 的巡檢截圖、`background_alert_test.py bg`／`nav`（背景模擬、護航小圖示、Google 地圖護航）。
+
 ## 🔴 待我處理（只有使用者能做）
 
 | # | 事項 | 怎麼做 | 狀態 |
