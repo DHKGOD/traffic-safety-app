@@ -404,7 +404,7 @@ public class GuardianService extends Service {
                          String bigText, String level, String islandTitle, String islandSub) {
         // 設定頁「危險通知」：提醒方式（靈動島／兩者／只用橫幅）、聲音、震動
         SharedPreferences ap = alertPrefs(ctx);
-        String style = ap.getString("style", "island");
+        String style = ap.getString("style", "bubble"); // bubble：小球旁邊（預設）、island：螢幕上方、both、banner
         boolean vib = ap.getBoolean("vibrate", true), snd = ap.getBoolean("sound", true);
         boolean useIsland = IslandOverlay.allowed(ctx) && !"banner".equals(style);
         boolean banner = !useIsland || "both".equals(style);
@@ -437,8 +437,20 @@ public class GuardianService extends Service {
         }
         // 靈動島懸浮提醒（有「顯示在其他應用程式上層」權限時）
         int color = "high".equals(level) ? 0xFFFF3B30 : "medium".equals(level) ? 0xFFFF9500 : 0xFFF5B800;
-        if (useIsland) island.show(islandTitle, islandSub, color, 4500); // 短暫出現，少擋導航提示
+        if (useIsland) {
+            // 「小球旁邊」：有護航小球（守護中、離開 App）時從小球旁邊彈出；沒有小球時改用螢幕上方的靈動島
+            boolean tipped = "bubble".equals(style) && showBubbleTip(islandTitle, islandSub, color, 4500);
+            if (!tipped) island.show(islandTitle, islandSub, color, 4500); // 短暫出現，少擋導航提示
+        }
         return id;
+    }
+
+    /** 在護航小球旁邊彈出提醒；沒有可用的小球時回傳 false。 */
+    static boolean showBubbleTip(String title, String sub, int color, long ms) {
+        GuardianService s = instance;
+        if (s == null || s.bubble == null || !s.bubble.canShowTip()) return false;
+        s.bubble.showTip(title, sub, color, ms);
+        return true;
     }
 
     static SharedPreferences alertPrefs(Context ctx) {

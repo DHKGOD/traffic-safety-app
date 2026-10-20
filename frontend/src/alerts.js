@@ -7,7 +7,8 @@ const Native = registerPlugin('Guardian')
 const KEY = 'alertPrefs'
 
 export const ALERT_STYLES = [
-  { value: 'island', label: '靈動島（推薦）', hint: '螢幕上方黑色膠囊；通知欄只留靜音紀錄' },
+  { value: 'bubble', label: '小球旁邊（推薦）', hint: '從護航小球旁邊彈出，自動選左邊或右邊有空間的一側，不擋導航提示；沒有小球時改在螢幕上方' },
+  { value: 'island', label: '螢幕上方（靈動島）', hint: '狀態列下方的黑色膠囊；通知欄只留靜音紀錄' },
   { value: 'both', label: '靈動島＋通知橫幅', hint: '兩種都跳（三星「簡要」彈出樣式下橫幅可能不會彈出）' },
   { value: 'banner', label: '只用通知橫幅', hint: '使用 Android 系統通知' },
 ]
@@ -22,7 +23,7 @@ export const ALERT_DISTANCES = [
   { value: 1.6, label: '更早', hint: '距離 ×1.6' },
 ]
 
-const DEFAULTS = { style: 'island', level: 'low', distance: 1, voice: true, sound: true, vibrate: true }
+const DEFAULTS = { style: 'bubble', level: 'low', distance: 1, voice: true, sound: true, vibrate: true }
 
 export function alertPrefs() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') } } catch { return { ...DEFAULTS } }
@@ -37,6 +38,14 @@ export async function setAlertPrefs(patch) {
 
 /** 把偏好送到原生端（App 啟動時也呼叫一次）。 */
 export async function syncAlertPrefs() {
+  // 一次性遷移：舊版預設「靈動島」改成新預設「小球旁邊」（之後使用者自己選的會保留）
+  try {
+    if (!localStorage.getItem('alertStyleV2')) {
+      const saved = JSON.parse(localStorage.getItem(KEY) || 'null')
+      if (saved?.style === 'island') localStorage.setItem(KEY, JSON.stringify({ ...saved, style: 'bubble' }))
+      localStorage.setItem('alertStyleV2', '1')
+    }
+  } catch { /* 不影響使用 */ }
   if (!isNative()) return
   try { await Native.setAlertPrefs(alertPrefs()) } catch { /* 舊版 App 沒有這個方法 */ }
 }

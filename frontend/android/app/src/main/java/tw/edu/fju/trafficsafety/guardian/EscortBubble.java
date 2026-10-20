@@ -31,7 +31,9 @@ public class EscortBubble {
     private final Context ctx;
     private final WindowManager wm;
     private final Handler main = new Handler(Looper.getMainLooper());
-    private LinearLayout view;
+    private volatile LinearLayout view;
+    private LinearLayout tip;        // 小球旁邊彈出的提醒膠囊
+    private Runnable tipHide;
     private TextView label;
     private GradientDrawable bg;
     private WindowManager.LayoutParams lp;
@@ -103,18 +105,92 @@ public class EscortBubble {
         });
     }
 
+    /** 小球目前看得到（有建立、沒有因為回到本 App 而藏起來），可以在旁邊彈出提醒。 */
+    public boolean canShowTip() {
+        return view != null && !hiddenByApp;
+    }
+
+    /**
+     * 在小球旁邊彈出單行提醒（「小球旁邊」提醒方式）：自動偵測小球左右兩側哪邊空間大就往哪邊彈，
+     * 放不下時縮短文字；不佔用螢幕上方，不會擋到 Google 地圖導航的轉彎提示（使用者提議）。
+     */
+    public void showTip(String title, String subtitle, int levelColor, long durationMs) {
+        main.post(() -> {
+            if (view == null || hiddenByApp) return;
+            removeTip();
+            int screenW = ctx.getResources().getDisplayMetrics().widthPixels;
+            int size = dp(SIZE), gap = dp(8), margin = dp(8);
+            int leftSpace = lp.x - gap - margin;
+            int rightSpace = screenW - (lp.x + size) - gap - margin;
+            boolean toRight = rightSpace >= leftSpace;
+            int avail = Math.max(dp(140), toRight ? rightSpace : leftSpace);
+            LinearLayout p = IslandOverlay.pill(ctx, title, subtitle, levelColor, 0);
+            int unspec = android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED);
+            p.measure(unspec, unspec);
+            if (p.getMeasuredWidth() > avail) { // 太長：縮短標題（風險等級），距離一定保留
+                TextView t = (TextView) p.getChildAt(1);
+                t.setMaxWidth(Math.max(dp(36), t.getMeasuredWidth() - (p.getMeasuredWidth() - avail)));
+                p.measure(unspec, unspec);
+            }
+            int w = Math.min(p.getMeasuredWidth(), avail), h = p.getMeasuredHeight();
+            WindowManager.LayoutParams tl = new WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                            : WindowManager.LayoutParams.TYPE_PHONE,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    PixelFormat.TRANSLUCENT);
+            tl.gravity = Gravity.TOP | Gravity.START;
+            tl.x = toRight ? lp.x + size + gap : lp.x - gap - w;
+            tl.y = lp.y + (size - h) / 2;
+            p.setOnClickListener(v -> {
+                removeTip();
+                Intent i = new Intent(ctx, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                ctx.startActivity(i);
+            });
+            try {
+                wm.addView(p, tl);
+            } catch (Exception e) {
+                return;
+            }
+            tip = p;
+            // 從小球那一側長出來
+            p.setPivotX(toRight ? 0 : w);
+            p.setPivotY(h / 2f);
+            p.setScaleX(0.2f);
+            p.setAlpha(0f);
+            p.animate().scaleX(1f).alpha(1f).setDuration(320).start();
+            tipHide = () -> {
+                LinearLayout cur = tip;
+                if (cur == null) return;
+                cur.animate().scaleX(0.2f).alpha(0f).setDuration(220).withEndAction(this::removeTip).start();
+            };
+            main.postDelayed(tipHide, durationMs);
+        });
+    }
+
+    private void removeTip() {
+        if (tipHide != null) main.removeCallbacks(tipHide);
+        tipHide = null;
+        if (tip != null) {
+            try { wm.removeViewImmediate(tip); } catch (Exception ignored) { }
+            tip = null;
+        }
+    }
+
     /** 回到本 App 時先藏起來（App 自己的畫面已有完整資訊），離開 App 再出現。 */
     public void setHidden(boolean hidden) {
         main.post(() -> {
             hiddenByApp = hidden;
+            if (hidden) removeTip();
             if (view != null) view.setVisibility(hidden ? android.view.View.GONE : android.view.View.VISIBLE);
         });
     }
 
-    private boolean hiddenByApp;
+    private volatile boolean hiddenByApp;
 
     public void remove() {
         main.post(() -> {
+            removeTip();
             if (pulse != null) pulse.cancel();
             if (calm != null) main.removeCallbacks(calm);
             calm = null;
@@ -153,6 +229,7 @@ public class EscortBubble {
         root.setOnTouchListener((v, e) -> {
             switch (e.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
+                    removeTip(); // 拖動小球時先收起旁邊的提醒
                     start[0] = e.getRawX(); start[1] = e.getRawY(); start[2] = lp.x; start[3] = lp.y;
                     return true;
                 case MotionEvent.ACTION_MOVE:

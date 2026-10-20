@@ -149,10 +149,10 @@ public class GuardianPlugin extends Plugin {
     /** 設定頁「危險通知」：style、level、distance、voice、sound、vibrate。守護執行中立即套用提醒距離。 */
     @PluginMethod
     public void setAlertPrefs(PluginCall call) {
-        String style = call.getString("style", "island");
+        String style = call.getString("style", "bubble");
         String level = call.getString("level", "low");
         GuardianService.alertPrefs(getContext()).edit()
-                .putString("style", java.util.Arrays.asList("island", "both", "banner").contains(style) ? style : "island")
+                .putString("style", java.util.Arrays.asList("bubble", "island", "both", "banner").contains(style) ? style : "bubble")
                 .putString("level", java.util.Arrays.asList("low", "medium", "high").contains(level) ? level : "low")
                 .putFloat("distance", (float) Math.max(0.5, Math.min(2.0, call.getDouble("distance", 1.0))))
                 .putBoolean("voice", call.getBoolean("voice", true))

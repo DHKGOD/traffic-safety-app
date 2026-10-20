@@ -61,15 +61,12 @@ public class IslandOverlay {
                     WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                             : WindowManager.LayoutParams.TYPE_PHONE,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                     PixelFormat.TRANSLUCENT);
             lp.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
-            // 放在狀態列中間（像 Apple 的動態島）：實機發現放在狀態列下方會蓋到 Google 地圖導航的轉彎提示
-            lp.y = Math.max(0, (statusBarHeight() - dp(40)) / 2);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
-            }
+            // 放在狀態列正下方：放進狀態列時，系統的時間與圖示會畫在上面，字看不清楚（實機發現）。
+            // 想完全不擋導航提示，請用「小球旁邊」提醒方式（預設）。
+            lp.y = statusBarHeight() + dp(4);
             try {
                 wm.addView(view, lp);
             } catch (Exception e) {
@@ -95,15 +92,32 @@ public class IslandOverlay {
      * 而且上方不能擋住 Google 地圖導航的轉彎提示，所以只放風險等級＋距離）。
      */
     private LinearLayout build(String title, String subtitle, int levelColor) {
+        LinearLayout root = pill(ctx, title, subtitle, levelColor, 0);
+        // 點一下打開 App
+        root.setOnClickListener(v -> {
+            removeNow();
+            Intent i = new Intent(ctx, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            ctx.startActivity(i);
+        });
+        return root;
+    }
+
+    private static int dp(Context ctx, float v) {
+        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, ctx.getResources().getDisplayMetrics()));
+    }
+
+    /** 黑色單行膠囊（靈動島與小球旁提醒共用）。titleMaxPx > 0 時限制標題寬度，太長就省略。 */
+    static LinearLayout pill(Context ctx, String title, String subtitle, int levelColor, int titleMaxPx) {
+        java.util.function.IntUnaryOperator dp = v -> dp(ctx, v);
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.HORIZONTAL);
         root.setGravity(Gravity.CENTER_VERTICAL);
-        root.setPadding(dp(7), dp(6), dp(16), dp(6));
+        root.setPadding(dp.applyAsInt(7), dp.applyAsInt(6), dp.applyAsInt(16), dp.applyAsInt(6));
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Color.BLACK);
-        bg.setCornerRadius(dp(22));
+        bg.setCornerRadius(dp.applyAsInt(22));
         root.setBackground(bg);
-        root.setElevation(dp(8));
+        root.setElevation(dp.applyAsInt(8));
 
         // 左側：風險顏色的小圓點（含「!」）
         TextView icon = new TextView(ctx);
@@ -116,8 +130,8 @@ public class IslandOverlay {
         dot.setShape(GradientDrawable.OVAL);
         dot.setColor(levelColor);
         icon.setBackground(dot);
-        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(dp(28), dp(28));
-        ilp.rightMargin = dp(9);
+        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(dp.applyAsInt(28), dp.applyAsInt(28));
+        ilp.rightMargin = dp.applyAsInt(9);
         root.addView(icon, ilp);
 
         TextView t = new TextView(ctx);
@@ -127,6 +141,7 @@ public class IslandOverlay {
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         t.setSingleLine(true);
         t.setEllipsize(TextUtils.TruncateAt.END);
+        if (titleMaxPx > 0) t.setMaxWidth(titleMaxPx);
         root.addView(t);
 
         if (subtitle != null && !subtitle.isEmpty()) {
@@ -137,16 +152,9 @@ public class IslandOverlay {
             s.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
             s.setSingleLine(true);
             LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            slp.leftMargin = dp(10);
+            slp.leftMargin = dp.applyAsInt(10);
             root.addView(s, slp);
         }
-
-        // 點一下打開 App
-        root.setOnClickListener(v -> {
-            removeNow();
-            Intent i = new Intent(ctx, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            ctx.startActivity(i);
-        });
         return root;
     }
 
