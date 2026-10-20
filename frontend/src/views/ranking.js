@@ -33,7 +33,14 @@ async function myPosition() {
     let perm = (await Geolocation.checkPermissions()).location
     if (perm === 'prompt' || perm === 'prompt-with-rationale') perm = (await Geolocation.requestPermissions()).location
     if (perm !== 'granted') throw new Error('no permission')
-    const p = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 0 })
+    // 先要新的定位（移動後回到排行要用新位置）；室內常常 8 秒內拿不到（實機發現），
+    // 再退回手機 10 分鐘內的定位，最後才用路線起點
+    let p
+    try {
+      p = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 6000, maximumAge: 0 })
+    } catch {
+      p = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 4000, maximumAge: 10 * 60 * 1000 })
+    }
     return { lat: p.coords.latitude, lon: p.coords.longitude, gps: true }
   } catch {
     const s = routeOrDemo().start
