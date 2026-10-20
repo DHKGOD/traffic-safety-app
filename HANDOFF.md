@@ -1,18 +1,18 @@
 # HANDOFF 交接
 
 > 每完成一個小任務、或對話快滿／額度快到時，都要更新本檔並 commit。接手方先讀 AGENTS.md、本檔、TASKS.md。
-> 最後更新：2026-10-20（Claude，commit `551e7bb` 之後）。App 名稱已改為 **「有路安」**（套件名稱仍是 `tw.edu.fju.trafficsafety`，不要改，否則手機要重裝）。
+> 最後更新：2026-10-20（Codex，修復提交 `84b006e`、`1dc4ff6`，測試完成）。App 名稱已改為 **「有路安」**（套件名稱仍是 `tw.edu.fju.trafficsafety`，不要改，否則手機要重裝）。
 
-## Codex 修復進度（2026-10-20）
+## Codex 修復完成（2026-10-20）
 
 - 分支 `codex/fix-nearby-coverage`，修復三項實測問題：附近範圍預覽漏算、返回附近排行不更新定位、背景守護下載被前 200 名截斷。
 - `/api/hotspots/near` 新增 `complete=true`：回傳半徑內全部符合天候／時段的路口，半徑仍限制 50–5000m；預設排行仍保留 limit。範圍小地圖與 Android 守護已改用完整資料。
 - 返回附近排行會重新定位，並停用定位結果的舊快取。搜尋指定地點／自訂地區仍保留原選擇。
 - 回歸證據：新增後端測試修正前 2 項失敗、修正後 pytest 50 passed（含 PostGIS 與替代查詢）；新增／加強兩個瀏覽器情境，舊版皆失敗。Java 邏輯測試 8 passed。
 - 額外畫面驗證：台北車站 500m 預覽與清單皆為 23 處（舊預覽只有 8）；定位移到台中後重新查詢新座標。3km 守護完整資料有 506 處，包含先前漏掉的 ID 8318。
-- 完整 E2E 與新版 APK 驗證進行中。擱置的 App 更新四個檔案及 `update/` 原封保留，不會包含在本次 commit 或乾淨 APK 中。
+- 最終驗證：pytest **51 passed**、完整 E2E **24 passed（3.2 分鐘）**、Java **8 tests**。E2E 測試回報 2 筆／分享路線 1 筆已清除。新版 APK 已建置安裝；擱置的 App 更新四個檔案及 `update/` 原封保留，未包含在本次 commit 或乾淨 APK 中。
 - 修復提交 `84b006e`；APK 已以乾淨提交建置並覆蓋安裝 S21 FE（保留資料），裝置 APK 與本機 SHA-256 一致，啟動 Status ok。Android lint 0 errors／26 warnings；手機鎖定，UI／背景提醒尚未實機驗證。
-- 第一輪完整 E2E 的前 21 項通過，但 Windows Python 3.11 Proactor 遇 WinError 64 後關閉監聽 socket，最後 3 項連線被拒絕（程序仍在，見 `logs/codex-fix-e2e-attempt1.txt` 與 `logs/api.log`）。已將 Windows 的一鍵啟動改為 Uvicorn 自訂 Selector 迴圈（`backend/app/runtime.py`），Linux 保留原行為。pytest 現為 51 passed，含客戶端 RST 連線回歸；運行中 API 另完成 200 次 TCP RST＋100 次 health 查詢全數成功。正在重跑完整 E2E。
+- 第一輪完整 E2E 的前 21 項通過，但 Windows Python 3.11 Proactor 遇 WinError 64 後關閉監聽 socket，最後 3 項連線被拒絕（程序仍在，見 `logs/codex-fix-e2e-attempt1.txt` 與 `logs/api.log`）。已將 Windows 的一鍵啟動改為 Uvicorn 自訂 Selector 迴圈（`backend/app/runtime.py`），Linux 保留原行為。pytest 含客戶端 RST 連線回歸；運行中 API 另完成 200 次 TCP RST＋100 次 health 查詢全數成功，修正後完整 E2E 全數通過。
 - 測試紀錄在 `logs/codex-fix-e2e-20261020.txt`、`logs/codex-fixed-probe-result.txt`；修復前證據見 `logs/codex-test-report-20261020.md`。手機仍鎖定，尚未宣稱實機驗證完成。
 
 ## 🔴 待我處理（只有使用者能做）
@@ -21,7 +21,7 @@
 |---|---|---|---|
 | 1 | **手機解鎖讓 agent 做實機測試** | 手機接 USB、解鎖、螢幕保持亮著 | ⏸ 等使用者（背景提醒、護航小圖示、新版 UI 都還沒實機驗證） |
 | 2 | **決定 App 內更新（GitHub Releases）要不要做** | 見下方「進行中的工作」：保留中、未 commit | ⏸ 等使用者決定 |
-| 3 | **同意推送到 GitHub**（本機領先 origin 13 個 commit） | 跟 agent 說「推上去」；推送前 agent 要再掃一次金鑰 | ⏸ 等使用者 |
+| 3 | **同意推送到 GitHub**（本機有未推送提交） | 跟 agent 說「推上去」；推送前 agent 要再掃一次金鑰 | ⏸ 等使用者 |
 | 4 | 在手機開啟「靈動島與護航小圖示權限」 | App →「設定」→ 該項 → 系統頁面開啟「有路安」（測試期間已用 adb 開啟；正式展示前在手機上確認一次） | 已用 adb 開啟（測試用） |
 | 5 | （選用）三星通知彈出樣式改「詳細」 | 手機「設定 → 通知 → 通知彈出樣式」；不改也沒關係，靈動島會提醒 | 選用 |
 | — | 已完成：Windows 防火牆＋Avast 信任 Wi-Fi、氣象署授權碼（`.env` 的 `CWA_API_KEY`）、GitHub 公開倉庫 https://github.com/DHKGOD/traffic-safety-app | | ✅ |
@@ -123,8 +123,8 @@
 |---|---|---|
 | 啟動 | 雙擊 `start_server.bat` | 印出本機與區網網址 |
 | 筆數 | `uv run python scripts/db_report.py` | accident 284,116；party 640,620 |
-| 後端測試 | `uv run pytest` | 48 passed |
-| 端對端測試 | `powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1` | 23 passed（約 3.5 分鐘，結束自動清測試資料） |
+| 後端測試 | `uv run pytest` | 51 passed |
+| 端對端測試 | `powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1` | 24 passed（約 3.2 分鐘，結束自動清測試資料） |
 | 單項 E2E | `cd frontend; npx playwright test -g "排行"` | 指定測試通過 |
 | 守護邏輯 | `powershell -ExecutionPolicy Bypass -File scripts\test_guardian.ps1` | OK (8 tests) |
 | 打包 APK | `powershell -ExecutionPolicy Bypass -File scripts\build_apk_clean.ps1`（`-NoInstall` 只打包） | `dist/traffic-safety-debug.apk`，有接手機則安裝 |
@@ -153,3 +153,7 @@ START_STICKY 重啟 intent 為 null（成立，從 SharedPreferences 恢復）�
 | 3 | 只用靈動島時「提示音」設定無效 | 只用靈動島且開提示音時由 App 播系統通知音 |
 
 **`14511b8` 之後的 UI 修改（地圖標記、改名、字型、路線線寬等）還沒經過 Codex 審查**，下次審查範圍：`40b7dee..HEAD`。
+
+### 本次 Codex 環境備註
+- 本機測試瀏覽器放在專案 `logs/playwright-browsers`。此 Codex 環境執行 E2E 前設定 `$env:PLAYWRIGHT_BROWSERS_PATH='E:\User\桌面\資料庫專題\logs\playwright-browsers'`，避免到不同代理程式的預設快取尋找。下載時用 `$env:NODE_USE_SYSTEM_CA='1'` 處理既有防毒憑證，不關閉 TLS 驗證。
+- 鎖定畫面冷啟動時，裝置日誌曾出現 Capacitor `triggerEvent` 初始化例外；尚無解鎖後操作重現證據，需在手機解鎖後巡檢，不將這次安裝成功當成 UI／背景提醒已實機驗證。

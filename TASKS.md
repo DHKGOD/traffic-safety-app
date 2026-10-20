@@ -31,7 +31,7 @@
 ## 功能
 | 狀態 | 任務 | 負責 |
 |---|---|---|
-| 🔄 | 修復附近範圍漏算、返回排行未更新定位、背景守護路口資料截斷、Windows API 中斷後停止接收連線；補回歸測試 | Codex |
+| ✅ | 修復附近範圍漏算、返回排行未更新定位、背景守護路口資料截斷、Windows API 中斷後停止接收連線；pytest 51／E2E 24／Java 8 通過，乾淨 APK 已安裝 | Codex |
 | ✅ | 自訂路線：地名搜尋（Nominatim）＋路線（OSRM） | Claude |
 | ✅ | AI 肇因預測（時間切分、基準比較、model_version／prediction） | Claude |
 | ✅ | 座標品質檢查 | Claude |
