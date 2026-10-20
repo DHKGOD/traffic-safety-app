@@ -179,7 +179,7 @@ export function settingsView({ openAdmin, openFamily, devWalk }) {
       <div class="card t-footnote c-2" style="margin-top:12px;line-height:1.6">
         ${icon('info')} ${DISCLAIMER}。<br>
         資料來源：內政部警政署「即時交通事故資料(A2類)」115 年 1–10 月（政府資料開放平臺）。<br>
-        地圖：© OpenStreetMap 貢獻者、© CARTO。<br>
+        地圖：<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>，資料 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> 貢獻者；地名搜尋與路線：OpenStreetMap Nominatim、OSRM。天氣：中央氣象署開放資料。<br>
         輔仁大學 資料庫課程專題。
       </div>
     </div>`

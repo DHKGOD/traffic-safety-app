@@ -54,7 +54,6 @@ export function mapView({ openReport, openSubmit, startWalk }) {
             <button class="fab fab-round" data-act="guardian" aria-label="背景守護模式">${icon('shield')}</button>
             <div class="map-brand" aria-label="有路安">
               <span class="mb-t">有路安</span>
-              <a class="mb-attr" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a>
             </div>
           </div>
           <div class="fab-capsule">
