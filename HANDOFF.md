@@ -28,12 +28,22 @@
 - ✅ Codex 交叉審查第 2、3 次（合計 12 項，11 項成立已修正，1 項經查證不成立）
 - ✅ 危險路口合併改良（同一路口被格線切開的問題）
 - ✅ 氣象署天候自動模式（`/api/weather/now`：O-A0002-001 最近雨量站＋F-D0047 鄉鎮 3 小時降雨機率；地圖／排行的天候膠囊多「自動」）
+- ✅ 地圖改 Google 地圖風格（頂部浮動搜尋列＋膠囊、右側圓鈕）；抽屜四段、最小只剩標題列，觸控拖曳不再被清單吃掉
+- ✅ 排行改「附近（GPS）／全國／自訂（記在手機）」＋搜尋行政區或地點；附近範圍選擇 500m–5km（小地圖＋危險點，不顯示路名）；新增 `/api/hotspots/areas`
+- ✅ 模擬行走接近路口時跳靈動島／系統通知；按主畫面鍵會交給原生服務在背景繼續、回來接續進度
+- ✅ 導航護航：守護中離開 App 時畫面邊緣常駐浮動小圖示（最近路口距離，接近時變紅跳動）；守護選單一鍵開 Google 地圖導航
+- ✅ 設定「危險通知」（提醒方式／等級／時機／語音／提示音／震動，同步原生服務）與「開發者選項」（模擬行走、背景守護模擬、導航護航模擬、停止、權限狀態）
+- ⬜ 實機驗證背景守護模擬與導航護航小圖示（`scripts/background_alert_test.py bg|nav`，需手機解鎖）
 - ⬜ AI 任務 2：天候風險用測站降雨時數校正
 
 ## 最後完成的事情
 
 | commit | 內容 |
 |---|---|
+| `f88e7f7` | 開發者選項背景模擬加快 3 倍；實機背景提醒測試腳本 |
+| `23c8537` | 設定「危險通知」「開發者選項」；排行附近範圍選擇（小地圖）與排版；模擬行走出錯不再卡住 |
+| `33766bf` | 地圖 Google 地圖風格、抽屜最小化；排行附近／全國／自訂＋搜尋；模擬行走跳通知可背景執行；導航護航浮動小圖示 |
+| `646d51f` | 天候自動模式（氣象署最近雨量站＋鄉鎮降雨機率） |
 | `b04faf1` | 實機測試腳本：先喚醒螢幕，鎖定時給出提示 |
 | `15aa759` | 修正 Codex 第三次審查：分享代碼防暴力猜測、E2E 只清自己的資料、守護中切換長輩模式即時生效、路口合併結果固定 |
 | `2e02eb7` | README：功能總覽與測試方法 |
@@ -49,11 +59,11 @@
 
 ## 進行中的工作
 
-無（可以直接從「下一步」開始）。
+- **App 內更新（GitHub Releases）先擱置、未 commit**：`frontend/package.json`（0.2.0）、`build.gradle`（版本號讀 package.json）、`AndroidManifest`（REQUEST_INSTALL_PACKAGES）、`MainActivity`（註冊 AppUpdatePlugin）、`update/AppUpdatePlugin.java`。使用者說「先保留、不要 commit 也不要還原，等我決定」。**commit 時只 add 指定檔案，不要 `git add -A`**；打包 APK 時用乾淨的 git worktree（scratchpad 的 apkbuild）避免把這些未決定的修改包進去。
 
 ## 下一步（可直接開始）
 
-1. **手機解鎖後重跑實機巡檢**（最後一輪因手機螢幕鎖定未跑）：`adb reverse tcp:8000 tcp:8000`，`uv run python scripts/phone_tour.py`，預期 22 步、JS 錯誤 0。
+1. **手機解鎖後實機驗證背景提醒**：`uv run python scripts/background_alert_test.py bg 50`（背景守護模擬）與 `... nav 50`（導航護航＋Google 地圖），看 `logs/background_test/` 截圖有靈動島與護航小圖示、輸出「送出的危險路口提醒」≥1；再跑 `uv run python scripts/phone_tour.py`。
 2. **AI 任務 2（天候風險校正）**（天候自動模式已完成；氣象署 API 格式實測紀錄見 `backend/app/routers/weather.py` 開頭與 FORECAST_DATASET）：先查氣象署有無 2026 年逐日／逐時雨量的 API 資料集（不要憑記憶猜，實際呼叫確認）；取得測站每日／每小時雨量，計算各行政區「下雨時數占比」，雨天風險倍數 = (雨天事故占比) ÷ (下雨時數占比)，取代全國雨天比例；結果寫進 hotspot 或新表，報告頁顯示「下雨時事故風險是平常的 N 倍」。
 3. （選用）背景守護改進：Activity Recognition 區分搭車與開車（需 ACTIVITY_RECOGNITION 權限）。
 4. （選用）錄 Demo 影片：S21 FE 螢幕錄影「規劃路線 → 開背景守護模擬 → 切到 Google 地圖 → 靈動島提醒跳出」。
@@ -79,10 +89,11 @@
 |---|---|---|
 | 啟動 | 雙擊 `start_server.bat` | 印出本機與區網網址 |
 | 筆數 | `uv run python scripts/db_report.py` | accident 284,116；party 640,620 |
-| 後端測試 | `uv run pytest` | 47 passed |
-| 端對端測試 | `powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1` | 18 passed（約 2.5 分鐘） |
-| 實機巡檢 | 手機接 USB、`adb reverse tcp:8000 tcp:8000`、`uv run python scripts/phone_tour.py` | 20 步驟、JS 錯誤 0，截圖在 `logs/phone_tour/` |
-| 守護邏輯 | `powershell -ExecutionPolicy Bypass -File scripts\test_guardian.ps1` | OK (7 tests) |
+| 後端測試 | `uv run pytest` | 48 passed |
+| 端對端測試 | `powershell -ExecutionPolicy Bypass -File scripts\e2e.ps1` | 23 passed（約 3.5 分鐘） |
+| 實機巡檢 | 手機接 USB（或同 Wi-Fi）、`uv run python scripts/phone_tour.py` | 23 步驟、JS 錯誤 0，截圖在 `logs/phone_tour/` |
+| 背景提醒實機 | `uv run python scripts/background_alert_test.py bg 50`（或 `nav`） | 送出的危險路口提醒 ≥1，截圖在 `logs/background_test/` |
+| 守護邏輯 | `powershell -ExecutionPolicy Bypass -File scripts\test_guardian.ps1` | OK (8 tests) |
 | 守護實機 | 手機接 USB、`uv run python scripts/guardian_device_test.py 60` | 收到提醒且偵測到靈動島截圖（logs/guardian_test/banner_*.png） |
 | AI | `uv run python ai/train_cause_model.py`（約 2 分鐘） | 產生 `docs/ai-report.md`，model_version 有兩筆 is_active |
 | APK | `powershell -ExecutionPolicy Bypass -File scripts\build_apk.ps1` | `dist/traffic-safety-debug.apk`，有接手機則自動安裝 |
