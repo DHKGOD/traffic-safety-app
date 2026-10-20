@@ -4,7 +4,7 @@ import { api } from '../api.js'
 import { icon } from '../icons.js'
 import { L, createMap, drawRoute, hotspotIcon, meIcon, pinIcon, reportIcon } from '../map-utils.js'
 import { DEMO, MODE_LABEL, PERIOD_HINT, PERIOD_OPTS, emit, on, setMode, setRoute, state } from '../store.js'
-import { pickWeather, renderWeatherChip } from '../weather.js'
+import { live, pickWeather } from '../weather.js'
 import { $, $$, LEVEL, actionSheet, disclaimer, el, emptyState, esc, fmt, haptic, skeletonList, toast, toastError } from '../ui.js'
 import { guardianAvailable, guardianState, openNavigation, overlayAllowed, startGuardian, stopGuardian } from '../guardian.js'
 import { openPlanner } from './planner.js'
@@ -18,45 +18,42 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     <section class="page map-page">
       <div id="map"></div>
       <div class="status-scrim"></div>
-      <div class="map-top">
-        <button class="gsearch" data-act="plan">
-          <span class="gs-pin">${icon('mappin')}</span>
-          <span class="q route-q"></span>
-          <span class="gs-go" aria-hidden="true">${icon('route')}</span>
-        </button>
-        <div class="chips top-chips">
-          <button class="chip" data-act="weather"></button>
-          <button class="chip" data-act="period"></button>
-          <button class="chip" data-act="demo" hidden>${icon('route')}回到 Demo 路線</button>
-        </div>
-      </div>
+      <!-- Apple 地圖風格：左上天氣膠囊；抽屜上方左圓鈕、右直式膠囊（跟著抽屜移動） -->
+      <button class="wx-pill" data-act="weather" aria-label="天候模式"></button>
       <button class="guardian-pill" data-act="guardian" hidden>
         <span class="g-ic">${icon('shield')}</span>
         <span class="g-text"><b>守護中</b><span class="g-sub"></span></span>
       </button>
-      <div class="map-fabs">
-        <div class="fab-stack">
-          <button class="fab" data-act="locate" aria-label="我的位置">${icon('location')}</button>
-          <button class="fab" data-act="fit" aria-label="顯示整條路線">${icon('route')}</button>
-        </div>
-        <div class="fab-stack">
-          <button class="fab" data-act="guardian" aria-label="背景守護模式">${icon('shield')}</button>
-          <button class="fab" data-act="walk" aria-label="模擬行走">${icon('walk')}</button>
-          <button class="fab" data-act="report" aria-label="回報差點被撞" style="color:var(--purple)">${icon('plus')}</button>
-        </div>
-      </div>
       <div class="sheet-clip"><div class="sheet">
+        <div class="sheet-ctrls">
+          <button class="fab fab-round" data-act="guardian" aria-label="背景守護模式">${icon('shield')}</button>
+          <div class="fab-capsule">
+            <button class="fab" data-act="fit" aria-label="顯示整條路線">${icon('map')}</button>
+            <button class="fab" data-act="locate" aria-label="我的位置">${icon('location')}</button>
+          </div>
+        </div>
         <div class="sheet-grabber"></div>
         <div class="sheet-body">
-          <div class="sheet-head">
-            <div class="t-title3">路線上的危險路口<span class="head-count"></span></div>
-            <span class="pill gray conn">${icon('wifi')}連線中</span>
+          <button class="search-field ap-search" data-act="plan">
+            ${icon('search')}<span class="q route-q"></span><span class="ap-mode"></span>
+          </button>
+          <div class="ap-sec">路線摘要</div>
+          <div class="ap-card">
+            <span class="ap-card-ic">${icon('warningFill')}</span>
+            <span class="ap-card-main">
+              <span class="ap-card-t"><b class="s-count">–</b> 個危險路口<span class="conn-wrap"><span class="pill gray conn">${icon('wifi')}連線中</span></span></span>
+              <span class="ap-card-s">歷史事故 <b class="s-acc">–</b> 件・附近回報 <b class="s-rep">–</b> 則</span>
+            </span>
+            <button class="ap-more" data-act="more" aria-label="更多">${icon('ellipsis')}</button>
           </div>
-          <div class="summary-row">
-            <div class="mini"><span class="num s-count">–</span><span>危險路口</span></div>
-            <div class="mini"><span class="num s-acc">–</span><span>歷史事故</span></div>
-            <div class="mini"><span class="num s-rep">–</span><span>附近回報</span></div>
+          <div class="ap-sec">快捷</div>
+          <div class="ap-quick">
+            <button data-act="walk"><span class="qi" style="background:var(--blue)">${icon('walk')}</span><b>模擬行走</b><small class="q-walk">沿路線</small></button>
+            <button data-act="guardian"><span class="qi" style="background:var(--teal)">${icon('shield')}</span><b>背景守護</b><small class="q-guard">未開啟</small></button>
+            <button data-act="report"><span class="qi" style="background:var(--purple)">${icon('plus')}</span><b>回報</b><small>差點被撞</small></button>
+            <button data-act="period"><span class="qi" style="background:var(--orange)">${icon('clock')}</span><b>時段</b><small class="q-period">全天</small></button>
           </div>
+          <div class="ap-sec sheet-head">路線上的危險路口<span class="head-count"></span><button class="link-btn" data-act="demo" hidden>回到 Demo 路線</button></div>
           <div class="hs-list">${skeletonList(5)}</div>
           ${disclaimer()}
         </div>
@@ -74,12 +71,25 @@ export function mapView({ openReport, openSubmit, startWalk }) {
   /* ---------- 底部抽屜上方：路線與模式 ---------- */
   function renderHeader() {
     const r = state.route
-    $('.route-q', page).innerHTML = `${esc(r.start.name)} → ${esc(r.end.name)} <small>・${icon(MODE_ICON[r.mode] || 'walk')} ${fmt.dist(r.distance_m)}</small>`
-    renderWeatherChip($('[data-act="weather"]', page))
-    const pc = $('[data-act="period"]', page)
-    pc.className = `chip${state.period !== 'all' ? ' on' : ''}`
-    pc.innerHTML = `${icon(state.period === 'night' ? 'moon' : 'clock')}${PERIOD_HINT[state.period]}<span class="caret">${icon('chevronDown')}</span>`
+    $('.route-q', page).innerHTML = `${esc(r.start.name)} → ${esc(r.end.name)}`
+    $('.ap-mode', page).innerHTML = `${icon(MODE_ICON[r.mode] || 'walk')}${fmt.dist(r.distance_m)}`
+    renderWeatherPill()
+    $('.q-period', page).textContent = PERIOD_HINT[state.period]
+    $('[data-act="period"] .qi', page).innerHTML = icon(state.period === 'night' ? 'moon' : 'clock')
     $('[data-act="demo"]', page).hidden = !!r.demo
+  }
+
+  /* 左上天氣膠囊（Apple 地圖風格）：氣溫＋天氣；篩選模式不是「全部」時多一個標籤 */
+  function renderWeatherPill() {
+    const d = live.data
+    const w = state.weather
+    const rainy = d?.raining || /雨/.test(d?.forecast?.weather || '')
+    const ic = rainy || w === 'rain' ? 'rain' : 'sun'
+    const temp = d?.temperature != null ? `${Math.round(d.temperature)}°` : d?.forecast?.weather || '天氣'
+    const tag = state.weatherAuto ? `自動・${w === 'rain' ? '雨天' : '晴天'}` : w === 'rain' ? '雨天模式' : w === 'clear' ? '晴天模式' : ''
+    const pill = $('.wx-pill', page)
+    pill.className = `wx-pill${rainy ? ' rainy' : ''}${w !== 'all' ? ' filtered on' : ''}${w === 'rain' ? ' rain' : ''}`
+    pill.innerHTML = `<span class="wx-ic">${icon(ic)}</span><span class="wx-t">${esc(temp)}</span>${tag ? `<span class="wx-tag">${esc(tag)}</span>` : ''}`
   }
 
   /* ---------- 地圖 ---------- */
@@ -110,7 +120,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
   function fitRoute(animate = true) {
     const pad = matchMedia(WIDE).matches
       ? { paddingTopLeft: [440, 60], paddingBottomRight: [80, 60] }
-      : { paddingTopLeft: [30, 150], paddingBottomRight: [70, 260] }
+      : { paddingTopLeft: [30, 80], paddingBottomRight: [30, 380] }
     map.fitBounds(routeLayer.getBounds(), { ...pad, animate, maxZoom: 17 })
   }
 
@@ -196,6 +206,17 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     if (act === 'guardian') return guardianMenu()
     if (act === 'demo') return setRoute(DEMO)
     if (act === 'weather') return pickWeather()
+    if (act === 'more') {
+      const v = await actionSheet({ title: `${state.route.start.name} → ${state.route.end.name}`, options: [
+        { value: 'plan', label: '更改路線', icon: 'route' },
+        { value: 'fit', label: '顯示整條路線', icon: 'map' },
+        ...(state.route.demo ? [] : [{ value: 'demo', label: '回到 Demo 路線', icon: 'refresh' }]),
+      ] })
+      if (v === 'plan') openPlanner()
+      if (v === 'fit' && map) fitRoute()
+      if (v === 'demo') setRoute(DEMO)
+      return
+    }
     if (act === 'period') {
       const v = await actionSheet({ title: '時段模式', message: '依事故發生的時段篩選危險路口', value: state.period,
         options: PERIOD_OPTS.map((o) => ({ value: o.value, label: o.value === 'all' ? '全天' : `${o.label}（${PERIOD_HINT[o.value]}）` })) })
@@ -231,7 +252,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     selected = h
     markers.get(h.id)?.setIcon(hotspotIcon(h, h.rank, true))
     map.flyTo([h.lat, h.lon], Math.max(map.getZoom(), 17), { duration: 0.6 })
-    L.popup({ offset: [0, -10], closeButton: false, autoPan: true, autoPanPaddingTopLeft: [16, 150], autoPanPaddingBottomRight: [70, 250] })
+    L.popup({ offset: [0, -10], closeButton: false, autoPan: true, autoPanPaddingTopLeft: [16, 80], autoPanPaddingBottomRight: [16, 380] })
       .setLatLng([h.lat, h.lon])
       .setContent(`<div style="min-width:170px"><div style="font-weight:600;font-size:15px">${esc(h.name)}</div>
         <div style="color:var(--label-2);margin:2px 0 8px">${h.filtered_count} 件事故・${LEVEL[h.level].label}</div>
@@ -289,6 +310,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     const pill = $('.guardian-pill', page)
     pill.hidden = !g.running
     $('[data-act="guardian"].fab', page)?.classList.toggle('on', !!g.running)
+    $('.q-guard', page).textContent = g.running ? (g.simulating ? '模擬中' : '守護中') : '未開啟'
     if (g.running) {
       $('.g-sub', page).textContent = g.nearest ? `最近：${g.nearest}・${fmt.dist(g.nearestM)}` : (g.simulating ? '展示模擬中' : '取得位置中…')
     }
@@ -325,18 +347,17 @@ export function mapView({ openReport, openSubmit, startWalk }) {
   /* ---------- 底部抽屜拖曳（四段：最小（只剩搜尋列）／預設／一半／全開） ----------
      觸控用 touch 事件自己處理：未全開時整個抽屜跟著手指走（清單不捲動）；全開時清單可捲動，
      清單已在最上方再往下拉就改成拖抽屜。位移用 requestAnimationFrame 更新，避免卡頓。 */
-  const SNAP_PEEK = 236
   const MINI = 0, PEEK = 1, FULL = 3
   let snapIdx = PEEK
   const body = $('.sheet-body', page)
-  // 最小：只露出把手＋「路線上的危險路口」標題列（像 Google 地圖收起時只剩一條）
-  const miniHeight = () => {
-    const f = $('.sheet-head', page)
-    return f ? f.offsetTop + f.offsetHeight + 4 : 72
+  // 露出高度依內容量測（Apple 地圖：最小只剩搜尋列；預設到「快捷」那排圓鈕）
+  const bottomOf = (sel, fallback) => {
+    const f = $(sel, page)
+    return f && f.offsetHeight ? f.offsetTop + f.offsetHeight + 14 : fallback
   }
   const snaps = () => {
     const h = sheet.getBoundingClientRect().height
-    return [Math.max(0, h - miniHeight()), Math.max(0, h - SNAP_PEEK), h * 0.42, 0]
+    return [Math.max(0, h - bottomOf('.ap-search', 76)), Math.max(0, h - bottomOf('.ap-quick', 300)), h * 0.4, 0]
   }
   function setSnap(i) {
     snapIdx = i
@@ -422,6 +443,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
       }
     }
     if (type === 'online') setConn(payload)
+    if (type === 'live-weather') renderWeatherPill()
     if (type === 'server-changed' && map) load()
     if (type === 'guardian') renderGuardian(payload)
   })

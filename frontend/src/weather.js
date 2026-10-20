@@ -29,8 +29,17 @@ async function position() {
 }
 
 /** 取得即時天氣；自動模式下依建議切換晴天／雨天。 */
-export async function refreshLive({ announce = false } = {}) {
-  if (live.loading) return live.data
+let inflight = null
+let wantAnnounce = false
+export function refreshLive({ announce = false } = {}) {
+  // 已有請求在跑（例如開 App 時的那一次）：共用同一個請求，完成時再依最新的自動模式套用，
+  // 不要直接回傳舊資料（Codex 審查：否則剛選「自動」會被誤判為失敗而關掉）
+  if (announce) wantAnnounce = true
+  inflight ??= doRefresh().finally(() => { inflight = null; wantAnnounce = false })
+  return inflight
+}
+
+async function doRefresh() {
   live.loading = true
   try {
     const pos = await position()
@@ -39,7 +48,7 @@ export async function refreshLive({ announce = false } = {}) {
     live.data = d.available ? { ...d, from: pos.from } : null
     live.at = Date.now()
     if (!d.available && state.weatherAuto) setAuto(false, { silent: true })
-    else if (state.weatherAuto) apply(announce)
+    else if (state.weatherAuto) apply(wantAnnounce)
     emit('live-weather', live)
     return live.data
   } catch {

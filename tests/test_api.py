@@ -164,6 +164,8 @@ def test_weather_decision(monkeypatch):
     from backend.app.routers import weather
 
     assert weather._num("-998") is None and weather._num("X") is None and weather._num("2.5") == 2.5
+    # 沒有時區的時間字串視為台灣時間，可以和有時區的時間比較（Codex 審查）
+    assert weather._ts("2026-10-20 06:00:00") == weather._ts("2026-10-20T06:00:00+08:00")
     st = {"name": "新莊", "id": "C0ACA0", "lat": 25.05, "lon": 121.44, "county": "新北市", "town": "新莊區",
           "obs_time": "t", "rain_1h": 0.0, "rain_3h": 0.0}
     monkeypatch.setattr(weather, "settings", type("S", (), {"cwa_api_key": "x"})())

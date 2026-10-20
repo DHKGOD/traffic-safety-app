@@ -113,10 +113,10 @@ test('天候自動模式：附近下雨時自動切到雨天，手動選擇會�
   await chip.click()
   await expect(page.locator('.as-btn.sel')).toContainText('自動')
   await page.locator('.as-btn', { hasText: '全部天候' }).click()
-  await expect(chip).toHaveText(/^全部天候/)
+  await expect(chip).not.toContainText('自動')
   await expect(chip).not.toHaveClass(/on/)
   await page.reload()
-  await expect(chip).toHaveText(/^全部天候/)
+  await expect(chip).not.toContainText('自動')
 })
 
 test('天候自動模式：伺服器沒有氣象署授權碼時不顯示「自動」', async ({ page }) => {
@@ -414,7 +414,7 @@ test('地圖抽屜：點把手收到最小只剩標題列、往下拖也能收�
   await expect(sheet).not.toHaveClass(/mini/)
   // 從清單上往下拖（以前會被清單捲動吃掉）
   await page.waitForTimeout(600)
-  const b = await page.locator('.summary-row').boundingBox()
+  const b = await page.locator('.ap-card').boundingBox()
   await page.mouse.move(b.x + 20, b.y + 10)
   await page.mouse.down()
   for (let i = 1; i <= 8; i++) await page.mouse.move(b.x + 20, b.y + 10 + i * 30)

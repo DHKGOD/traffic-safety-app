@@ -3,34 +3,85 @@
 /* --- 地圖頁 --- */
 .map-page { background: var(--bg); }
 #map { position: absolute; inset: 0; z-index: 0; background: var(--card-2); }
-/* 頂部浮動搜尋列＋膠囊（參考 Google 地圖：地圖幾乎全螢幕，控制項浮在上面） */
-.map-top {
-  position: absolute; z-index: 27; left: 12px; right: 12px; top: calc(var(--safe-top) + 8px);
-  pointer-events: none; transition: opacity 0.25s, transform 0.3s var(--ease);
+/* Apple 地圖風格：浮動卡片式抽屜（四角圓、離邊緣一點距離）、左上天氣膠囊、抽屜上方的圓鈕與直式膠囊 */
+.map-page .sheet {
+  left: 8px; right: 8px; bottom: 8px; border-radius: 28px;
+  height: calc(100% - var(--safe-top) - 74px);
+  border: 0.5px solid var(--glass-border);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.22);
 }
-.map-top > * { pointer-events: auto; }
-.gsearch {
-  display: flex; align-items: center; gap: 10px; width: 100%; height: 52px; padding: 0 8px 0 14px;
-  border-radius: 26px; background: var(--card); color: var(--label); text-align: left;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16), 0 6px 18px rgba(0, 0, 0, 0.1);
+.wx-pill {
+  position: absolute; z-index: 26; left: 12px; top: calc(var(--safe-top) + 10px);
+  display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 12px 0 10px; border-radius: 14px;
+  background: var(--glass-strong); backdrop-filter: saturate(180%) blur(24px); -webkit-backdrop-filter: saturate(180%) blur(24px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16); border: 0.5px solid var(--glass-border); color: var(--label);
+  transition: opacity 0.25s;
 }
-.gsearch:active { background: var(--card-2); }
-.gs-pin { color: var(--red); font-size: 22px; display: grid; flex: none; }
-.gsearch .q { flex: 1; min-width: 0; font-size: 16.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gsearch .q small { color: var(--label-2); font-weight: 400; font-size: 14px; }
-.gs-go {
-  width: 38px; height: 38px; border-radius: 50%; flex: none; display: grid; place-items: center;
-  background: var(--blue); color: #fff; font-size: 19px;
+.wx-pill .wx-ic { font-size: 24px; display: grid; color: #ffcc00; filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.25)); }
+.wx-pill.rainy .wx-ic { color: var(--blue); filter: none; }
+.wx-pill .wx-t { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.wx-pill .wx-tag { font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 9px; background: var(--blue); color: #fff; margin-left: 2px; }
+.wx-pill.filtered .wx-tag { background: var(--indigo); }
+.map-page.walking .wx-pill { opacity: 0; pointer-events: none; }
+
+.sheet-ctrls {
+  position: absolute; left: 4px; right: 4px; bottom: 100%; margin-bottom: 10px;
+  display: flex; justify-content: space-between; align-items: flex-end; pointer-events: none;
+  transition: opacity 0.2s;
 }
-.top-chips { margin: 10px -12px 0; padding: 2px 12px 8px; }
-.top-chips .chip {
-  height: 36px; padding: 0 14px; border-radius: 18px; background: var(--card); color: var(--label);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+.sheet-ctrls > * { pointer-events: auto; }
+.sheet.full .sheet-ctrls { opacity: 0; pointer-events: none; }
+.sheet.full .sheet-ctrls > * { pointer-events: none; }
+.sheet-ctrls .fab {
+  width: 50px; height: 50px; font-size: 22px; color: var(--label);
+  background: var(--glass-strong); backdrop-filter: saturate(180%) blur(24px); -webkit-backdrop-filter: saturate(180%) blur(24px);
 }
-.top-chips .chip.on { background: var(--blue); color: #fff; }
-.top-chips .chip.rain.on { background: var(--indigo); }
-.map-page.walking .map-top { opacity: 0; transform: translateY(-12px); pointer-events: none; }
-.map-page.walking .map-top > * { pointer-events: none; }
+.sheet-ctrls .fab-round { border-radius: 50%; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18); border: 0.5px solid var(--glass-border); }
+.sheet-ctrls .fab-round.on { background: var(--blue); color: #fff; }
+.fab-capsule {
+  display: flex; flex-direction: column; border-radius: 25px; overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18); border: 0.5px solid var(--glass-border);
+}
+.fab-capsule .fab { border-radius: 0; }
+.fab-capsule .fab + .fab { border-top: 0.5px solid var(--sep); }
+
+.ap-search { height: 48px; border-radius: 24px; padding: 0 14px; margin-top: 4px; gap: 10px; }
+.ap-search .icon { font-size: 19px; }
+.ap-search .q { font-size: 17px; }
+.ap-mode { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 14px; color: var(--label-2); }
+.ap-sec { font-size: 21px; font-weight: 700; letter-spacing: -0.01em; margin: 22px 4px 10px; display: flex; align-items: center; gap: 8px; }
+.ap-card {
+  display: flex; align-items: center; gap: 14px; padding: 14px 10px 14px 14px; border-radius: 20px; background: var(--fill);
+}
+.ap-card-ic {
+  width: 46px; height: 46px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-size: 22px;
+  background: linear-gradient(160deg, #ff6b5f, var(--red));
+}
+.ap-card-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ap-card-t { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.ap-card-t b { font-family: var(--font-rounded); }
+.ap-card-s { font-size: 14px; color: var(--label-2); }
+.ap-card-s b { font-weight: 600; color: var(--label); }
+.conn-wrap { margin-left: auto; }
+.conn-wrap .pill { font-size: 12px; }
+.ap-more { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--label); font-size: 22px; flex: none; }
+.ap-more:active { background: var(--fill-2); }
+.ap-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.ap-quick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 2px 0; min-width: 0; }
+.ap-quick .qi {
+  width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 28px; margin-bottom: 6px;
+  box-shadow: inset 0 -2px 6px rgba(0, 0, 0, 0.12); transition: transform 0.15s;
+}
+.ap-quick button:active .qi { transform: scale(0.92); }
+.ap-quick b { font-size: 14px; font-weight: 600; }
+.ap-quick small { font-size: 12px; color: var(--label-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.sheet-head .link-btn { margin-left: auto; font-size: 15px; font-weight: 500; }
+.head-count:not(:empty) {
+  min-width: 26px; height: 24px; padding: 0 8px; border-radius: 12px; background: var(--red); color: #fff;
+  font-size: 14px; font-weight: 700; display: inline-grid; place-items: center; font-family: var(--font-rounded);
+}
+/* 設定：開發者選項的說明可換行，不被截斷 */
+[data-dev] .cell-sub, .dev-perm { white-space: normal !important; overflow: visible; text-overflow: clip; line-height: 1.35; }
 
 /* 排行頁 */
 .link-btn { color: var(--blue); font-size: 15px; font-weight: 500; display: inline-flex; align-items: center; gap: 2px; padding: 2px 0; }
@@ -56,27 +107,6 @@
 .rp-lv { display: inline-flex; align-items: center; gap: 5px; }
 .rp-lv i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 
-/* 右側圓形浮動按鈕（Google 地圖風格：各自獨立的圓鈕） */
-.map-fabs {
-  position: absolute; right: 12px; z-index: 26;
-  top: calc(var(--safe-top) + 120px);
-  display: flex; flex-direction: column; gap: 12px;
-}
-.map-fabs .fab-stack { border-radius: 0; overflow: visible; border: 0; box-shadow: none; gap: 10px; }
-.map-fabs .fab {
-  width: 46px; height: 46px; font-size: 20px; border-radius: 50%;
-  background: var(--card); backdrop-filter: none; -webkit-backdrop-filter: none;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2), 0 4px 10px rgba(0, 0, 0, 0.08);
-}
-.map-fabs .fab + .fab { border-top: 0; }
-.map-fabs .fab:active { background: var(--card-2); }
-.map-fabs .fab.on { background: var(--blue); color: #fff; }
-.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 2px 12px; }
-.sheet-head .t-title3 { display: flex; align-items: center; gap: 8px; font-size: 20px; }
-.head-count:not(:empty) {
-  min-width: 26px; height: 24px; padding: 0 8px; border-radius: 12px; background: var(--red); color: #fff;
-  font-size: 14px; font-weight: 700; display: inline-grid; place-items: center; font-family: var(--font-rounded);
-}
 .summary-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
 .summary-row .mini { background: var(--card); border-radius: 12px; padding: 9px 12px 8px; }
 .summary-row .mini .num { font-size: 22px; font-weight: 700; display: block; line-height: 1.15; letter-spacing: -0.01em; }
@@ -140,15 +170,17 @@
 
 /* 平板／橫式：底部抽屜變成左側浮動面板（類似 iPad 地圖） */
 @media (min-width: 900px) and (orientation: landscape), (min-width: 1100px) {
-  .map-top { left: 16px; right: auto; width: 390px; top: calc(var(--safe-top) + 16px); }
-  .sheet {
-    left: 16px; right: auto; width: 390px; top: calc(var(--safe-top) + 126px); bottom: 16px;
-    height: auto; border-radius: var(--radius-l); transform: none !important; box-shadow: var(--shadow-2);
+  .sheet, .map-page .sheet {
+    left: 16px; right: auto; width: 390px; top: calc(var(--safe-top) + 16px); bottom: 16px;
+    height: auto; border-radius: 28px; transform: none !important; box-shadow: var(--shadow-2);
     border: 0.5px solid var(--glass-border);
   }
   .sheet-grabber { display: none; }
   .sheet-body { padding-bottom: 16px; padding-top: 12px; overflow-y: auto; touch-action: pan-y; }
-  .map-fabs { top: calc(var(--safe-top) + 16px); right: 16px; }
+  /* 平板：控制鈕放到右上、天氣膠囊放在面板右邊 */
+  .sheet-ctrls { position: fixed; left: auto; right: 16px; bottom: auto; top: calc(var(--safe-top) + 16px); flex-direction: column; align-items: flex-end; gap: 12px; margin: 0; }
+  .wx-pill { left: 422px; top: calc(var(--safe-top) + 16px); }
+  .guardian-pill { left: 422px; top: calc(var(--safe-top) + 70px); }
   .tabbar { justify-content: center; gap: 40px; }
 }
 
@@ -274,7 +306,7 @@ html.no-blur[data-theme="dark"] {
 
 /* 背景守護：地圖左上角的狀態膠囊 */
 .guardian-pill {
-  position: absolute; z-index: 26; left: 12px; top: calc(var(--safe-top) + 120px); max-width: calc(100% - 90px);
+  position: absolute; z-index: 26; left: 12px; top: calc(var(--safe-top) + 64px); max-width: calc(100% - 90px);
   display: flex; align-items: center; gap: 10px; padding: 7px 14px 7px 8px; border-radius: 22px; text-align: left;
   background: var(--glass-strong); backdrop-filter: saturate(180%) blur(24px); -webkit-backdrop-filter: saturate(180%) blur(24px);
   box-shadow: var(--shadow-1); border: 0.5px solid var(--glass-border); animation: pop-in 0.35s var(--spring);

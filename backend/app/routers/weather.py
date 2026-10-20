@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -107,24 +107,44 @@ def _forecast(county: str, town: str) -> dict[str, Any] | None:
     if not ds:
         return None
 
-    def load() -> list[dict[str, Any]]:
-        recs = _get(f"F-D0047-{ds}", LocationName=town, ElementName="3小時降雨機率,天氣現象")
+    def load() -> dict[str, list[dict[str, Any]]]:
+        recs = _get(f"F-D0047-{ds}", LocationName=town, ElementName="3小時降雨機率,天氣現象,溫度")
         locs = (recs.get("Locations") or [{}])[0].get("Location") or []
         if not locs:
-            return []
+            return {"periods": [], "temps": []}
         el = {e["ElementName"]: e["Time"] for e in locs[0].get("WeatherElement", [])}
         wx = {t["StartTime"]: t["ElementValue"][0].get("Weather") for t in el.get("天氣現象", [])}
-        return [{"start": t["StartTime"], "end": t["EndTime"],
-                 "pop": _num(t["ElementValue"][0].get("ProbabilityOfPrecipitation")),
-                 "weather": wx.get(t["StartTime"])} for t in el.get("3小時降雨機率", [])]
+        periods = [{"start": t["StartTime"], "end": t["EndTime"],
+                    "pop": _num(t["ElementValue"][0].get("ProbabilityOfPrecipitation")),
+                    "weather": wx.get(t["StartTime"])} for t in el.get("3小時降雨機率", [])]
+        temps = [{"time": t.get("DataTime"), "value": _num(t["ElementValue"][0].get("Temperature"))}
+                 for t in el.get("溫度", []) if t.get("DataTime")]
+        return {"periods": periods, "temps": temps}
 
-    periods = _cached(("fc", ds, town), FC_TTL, load)
-    now = datetime.now().astimezone()
+    data = _cached(("fc", ds, town), FC_TTL, load)
+    now = datetime.now(TW)
+    out: dict[str, Any] | None = None
+    periods = data["periods"]
     for i, p in enumerate(periods):
-        if datetime.fromisoformat(p["end"]) > now:
+        if _ts(p["end"]) > now:
             nxt = periods[i + 1] if i + 1 < len(periods) else None
-            return {**p, "next": nxt}
-    return None
+            out = {**p, "next": nxt}
+            break
+    # 氣溫：取時間最接近現在的預報值（每 3 小時一筆）
+    temps = [t for t in data["temps"] if t["value"] is not None]
+    if temps:
+        best = min(temps, key=lambda t: abs((_ts(t["time"]) - now).total_seconds()))
+        out = {**(out or {}), "temperature": best["value"]}
+    return out
+
+
+TW = timezone(timedelta(hours=8))
+
+
+def _ts(s: str) -> datetime:
+    """氣象署時間字串轉成有時區的時間；沒有時區（例如 2026-10-20 06:00:00）時視為台灣時間（Codex 審查）。"""
+    d = datetime.fromisoformat(s.replace(" ", "T"))
+    return d if d.tzinfo else d.replace(tzinfo=TW)
 
 
 @router.get("/now", summary="目前位置的即時雨量與降雨機率（建議晴天／雨天模式）")
@@ -143,7 +163,7 @@ def weather_now(lat: float = Query(..., ge=21.5, le=26.5), lon: float = Query(..
 
     rain_1h = near["rain_1h"] if dist <= MAX_STATION_KM else None
     raining = rain_1h is not None and rain_1h >= RAIN_MM
-    pop = fc["pop"] if fc else None
+    pop = fc.get("pop") if fc else None
     if raining:
         mode, reason = "rain", f"附近測站過去 1 小時雨量 {rain_1h:g} mm"
     elif pop is not None and pop >= POP_RAIN:
@@ -152,7 +172,7 @@ def weather_now(lat: float = Query(..., ge=21.5, le=26.5), lon: float = Query(..
         mode, reason = "clear", "附近沒有下雨" + (f"，降雨機率 {pop:g}%" if pop is not None else "")
     return {
         "available": True, "suggested_mode": mode, "reason": reason, "raining": raining,
-        "rain_1h_mm": rain_1h, "pop_percent": pop,
+        "rain_1h_mm": rain_1h, "pop_percent": pop, "temperature": fc.get("temperature") if fc else None,
         "station": {"name": near["name"], "id": near["id"], "county": near["county"], "town": near["town"],
                     "distance_km": round(dist, 1), "obs_time": near["obs_time"]},
         "forecast": fc, "thresholds": {"rain_mm": RAIN_MM, "pop_percent": POP_RAIN}, "source": SOURCE,

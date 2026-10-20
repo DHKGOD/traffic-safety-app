@@ -394,6 +394,7 @@ public class GuardianService extends Service {
         boolean useIsland = IslandOverlay.allowed(ctx) && !"banner".equals(style);
         boolean banner = !useIsland || "both".equals(style);
         if (useIsland && !banner && vib) vibrate(ctx); // 只用靈動島時由 App 自己震動；有橫幅時由頻道震動
+        if (useIsland && !banner && snd) playSound(ctx); // 只用靈動島時通知是靜音紀錄，提示音由 App 自己播（Codex 審查）
         String channel = !banner ? CH_HISTORY : snd && vib ? CH_ALERT : vib ? CH_ALERT_V : snd ? CH_ALERT_S : CH_ALERT_Q;
         NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, channel)
                 .setSmallIcon(R.drawable.ic_stat_guardian)
@@ -440,6 +441,21 @@ public class GuardianService extends Service {
     /** 提醒距離倍數＝長輩模式（1.3）× 設定的「提醒時機」。設定變更時由外掛呼叫。 */
     void applyAlertPrefs() {
         engine.setRadiusScale((elder ? 1.3 : 1.0) * alertPrefs(this).getFloat("distance", 1f));
+    }
+
+    /** 播放系統通知音（導航提示用途，會暫時壓低音樂）；手機靜音／勿擾時由系統決定是否發聲。 */
+    private static void playSound(Context ctx) {
+        try {
+            android.media.Ringtone r = android.media.RingtoneManager.getRingtone(ctx,
+                    android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION));
+            if (r == null) return;
+            if (Build.VERSION.SDK_INT >= 21) {
+                r.setAudioAttributes(new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+            }
+            r.play();
+        } catch (RuntimeException ignored) { /* 沒有音效裝置 */ }
     }
 
     @SuppressWarnings("deprecation")
