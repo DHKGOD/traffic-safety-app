@@ -314,7 +314,7 @@
 .app-icon-hero { display: flex; flex-direction: column; align-items: center; padding: 8px 0 4px; gap: 10px; }
 .app-icon {
   width: 76px; height: 76px; border-radius: 18px;
-  background: #226b4e; /* App 圖示的綠色 */
+  background: #1e6a4e; /* App 圖示的綠色 */
   display: grid; place-items: center; color: #fff; font-size: 40px; box-shadow: var(--shadow-1);
 }
 
