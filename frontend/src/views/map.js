@@ -365,6 +365,8 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     if (selected) markers.get(selected.id)?.setIcon(hotspotIcon(selected, selected.rank))
     selected = h
     markers.get(h.id)?.setIcon(hotspotIcon(h, h.rank, true))
+    // 在地圖上點路口：抽屜收到最小，彈出的「查看路口體檢報告」不會被擋住（使用者回饋）
+    if (fromMap && snapIdx !== MINI) setSnap(MINI)
     focusPoint([h.lat, h.lon], Math.max(map.getZoom(), 17))
     L.popup({ offset: [0, -10], closeButton: false, autoPan: true, autoPanPaddingTopLeft: [16, 80], autoPanPaddingBottomRight: [16, 380] })
       .setLatLng([h.lat, h.lon])
@@ -481,8 +483,19 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     sheet.classList.toggle('full', i === FULL)
     sheet.classList.toggle('mini', i === MINI)
     if (matchMedia(WIDE).matches) { sheet.style.transform = ''; return }
+    // 地圖分頁被隱藏時抽屜高度量到 0，算出來會變成「全開」而且卡住（實機發現）：先不動，等看得到再套用
+    if (!sheet.getBoundingClientRect().height) return
     if (i !== FULL) body.scrollTop = 0
     sheet.style.transform = `translateY(${snaps()[i]}px)`
+  }
+  // 抽屜從看不到變成看得到（切回地圖分頁、轉向）時，重新套用目前段位
+  if ('ResizeObserver' in window) {
+    let lastH = 0
+    new ResizeObserver(() => {
+      const h = sheet.getBoundingClientRect().height
+      if (h && h !== lastH && !drag) setSnap(snapIdx)
+      lastH = h
+    }).observe(sheet)
   }
 
   let drag = null
