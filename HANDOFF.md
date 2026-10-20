@@ -157,3 +157,6 @@ START_STICKY 重啟 intent 為 null（成立，從 SharedPreferences 恢復）�
 ### 本次 Codex 環境備註
 - 本機測試瀏覽器放在專案 `logs/playwright-browsers`。此 Codex 環境執行 E2E 前設定 `$env:PLAYWRIGHT_BROWSERS_PATH='E:\User\桌面\資料庫專題\logs\playwright-browsers'`，避免到不同代理程式的預設快取尋找。下載時用 `$env:NODE_USE_SYSTEM_CA='1'` 處理既有防毒憑證，不關閉 TLS 驗證。
 - 鎖定畫面冷啟動時，裝置日誌曾出現 Capacitor `triggerEvent` 初始化例外；尚無解鎖後操作重現證據，需在手機解鎖後巡檢，不將這次安裝成功當成 UI／背景提醒已實機驗證。
+
+## 文件成果（2026-10-20）
+- 依使用者要求產出一頁白話簡介：`output/pdf/有路安_簡短介紹.pdf`，內容為選題原因、用途、資料庫流程與資料來源；已渲染檢查。詳細長版未交付，依使用者要求改為簡短版。
