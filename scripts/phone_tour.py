@@ -40,12 +40,15 @@ STEPS: list[tuple[str, str, float]] = [
     ("04_weather_auto", "document.querySelector('[data-act=weather]').click(); setTimeout(()=>[...document.querySelectorAll('.as-btn')].find(b=>b.textContent.includes('自動')).click(), 600)", 4),
     ("04b_back_all", "document.querySelector('[data-act=weather]').click(); setTimeout(()=>[...document.querySelectorAll('.as-btn')].find(b=>b.textContent.includes('全部天候')).click(), 600)", 3),
     ("05_sheet_mini", "document.querySelector('.sheet-grabber').click()", 1.5),
-    ("06_report", "const c=document.querySelector('.hs-cell'); c.click(); setTimeout(()=>c.click(), 900)", 4),
+    ("06_report", "{const c=document.querySelector('.hs-cell'); c.click(); setTimeout(()=>c.click(), 900)}", 4),
     ("07_report_scroll", "document.querySelector('[data-root=map] .page:last-child .scroll').scrollTo(0, 900)", 1.5),
     ("08_back_map", "document.querySelector('[data-root=map] .page:last-child [data-back]').click()", 2),
     ("09_planner", "document.querySelector('[data-act=plan]').click()", 2),
     ("10_planner_close", "document.querySelector('.modal [data-close]').click()", 1.2),
-    ("11_walk", "document.querySelector('.sheet-grabber').click(); document.querySelector('[data-act=walk]').click()", 3),
+    # 探索模式（沒有路線）時按步行會先開規劃路線：選 Demo 路線後再按一次步行
+    ("11_walk", "document.querySelector('.sheet-grabber').click(); document.querySelector('[data-act=walk]').click(); "
+                "setTimeout(()=>{const d=document.querySelector('.modal [data-k=demo]'); if(d){d.click(); "
+                "setTimeout(()=>document.querySelector('[data-act=walk]').click(), 2500)}}, 1500)", 6),
     ("12_walk_alert", "[...document.querySelectorAll('.walk-panel .segmented button')].find(b=>b.textContent.includes('30')).click()", 9),
     ("13_walk_stop", "document.querySelector('.walk-panel [data-w=stop]')?.click()", 1.5),
     ("14_rank", "document.querySelector('[data-tab=rank]').click()", 3),
