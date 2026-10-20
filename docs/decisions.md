@@ -101,3 +101,15 @@
 | T2 | Windows 的 `scripts/server.py` 明確指定 Uvicorn 自訂 Selector 迴圈；其他平台不改 | 實測 Python 3.11 Proactor 的 accept 發生 WinError 64 後關閉監聽 socket，程序仍在但新連線全部被拒絕。修正後實測 200 次 TCP RST＋100 次 health 查詢成功。只影響 API 行程，不改系統設定 |
 
 事件迴圈參考：[Uvicorn 自訂迴圈](https://uvicorn.dev/concepts/event-loop/)、[Python 3.11 平台限制](https://docs.python.org/3.11/library/asyncio-platforms.html)。Windows Selector 僅支援 socket、最多 512 個，適用目前本機課程展示；未使用 asyncio 子程序。雲端 Linux 繼續使用原本的自動迴圈選擇。
+
+## AI 任務 2：天候風險校正（2026-10-20）
+
+| # | 決策 | 理由 |
+|---|---|---|
+| R1 | 雨量用氣象署 C-B0025-001 每日雨量（38 個測站，2026-01-01 起），每個行政區對應 30 km 內最近測站，當天 ≥ 1 mm 為雨天 | 逐時資料（C-B0024）只有最近幾天，無法對回 1–10 月事故；雨量站（O-A0002）只有即時值 |
+| R2 | 每日事故數用 Poisson 迴歸（行政區＋星期幾＋雨量強度），和「行政區平均」「行政區＋星期幾」比較 deviance | 要先控制星期幾（週末事故少），才看得出雨量本身的影響 |
+| R3 | 不做「各區各自的雨天倍數」 | 實測加入「行政區 × 雨天」交互作用後，測試期 deviance 變差（1.524 vs 1.513），屬過度擬合 |
+| R4 | 路口雨天標記改成：路口雨天事故占比 vs 同區預期占比，二項檢定＋Benjamini–Hochberg（5%），事故 < 8 件不檢定 | 舊做法（天候欄雨天占比 ≥ 20%）標的路口，測試期實際 ÷ 預期 1.02，和其他路口 1.01 沒差別，是雜訊；上千個路口同時檢定必須控制誤報 |
+| R5 | 路口報告優先用校正結果；沒有校正資料（沒金鑰或附近沒測站）才退回天候欄判斷 | 不讓沒有統計根據的「雨天特別容易出事」出現在 App |
+
+結果與數字見 [ai-report-rain.md](ai-report-rain.md)。

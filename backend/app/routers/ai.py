@@ -51,7 +51,7 @@ def load_models() -> None:
     try:
         with db.conn() as c:
             rows = c.execute("""SELECT id, name, version, algorithm, metrics, baseline, artifact_path, train_range, test_range
-                                FROM model_version WHERE is_active""").fetchall()
+                                FROM model_version WHERE is_active AND artifact_path IS NOT NULL""").fetchall()
     except Exception:  # noqa: BLE001  資料表不存在等情況
         return
     for r in rows:

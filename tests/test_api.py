@@ -4,6 +4,9 @@
 """
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -116,7 +119,25 @@ def test_report(client):
     assert len(rep["hourly"]) == 24
     assert sum(rep["hourly"]) == rep["summary"]["accidents"]
     assert rep["advice"]["road_user"]
+    rr = rep["rain_risk"]  # 有跑過 ai/rain_risk.py 才有；沒有時為 None（前端退回天候欄判斷）
+    if rr is not None:
+        assert rr["level"] in ("rain_high", "rain_low", "normal")
+        assert 0 <= rr["rainy_accidents"] <= rr["accidents"]
     assert client.get("/api/hotspots/99999999/report").status_code == 404
+
+
+def test_rain_risk_stats():
+    """AI 任務 2 的統計小工具：BH 多重檢定與 Poisson deviance。"""
+    import numpy as np
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ai"))
+    import rain_risk as R
+    assert R.parse_mm("T") == 0 and R.parse_mm("X") is None and R.parse_mm("") is None and R.parse_mm("12.5") == 12.5
+    sig = R.bh(np.array([0.001, 0.02, 0.03, 0.5]), 0.05)
+    assert sig.tolist() == [True, True, True, False]
+    assert R.bh(np.array([0.2, 0.9]), 0.05).tolist() == [False, False]
+    y = np.array([0, 1, 3])
+    assert R.deviance(y, y.astype(float) + 1e-12) < 1e-6
+    assert R.deviance(y, np.full(3, 1.0)) > 0
 
 
 def test_create_and_poll_report(client):

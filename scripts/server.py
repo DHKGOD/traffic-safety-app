@@ -68,6 +68,7 @@ def ensure_database() -> None:
         flagged = conn.execute("SELECT count(*) FROM accident WHERE coord_flag IS NOT NULL").fetchone()[0]
         hotspots = conn.execute("SELECT count(*) FROM hotspot").fetchone()[0]
         models = conn.execute("SELECT artifact_path FROM model_version WHERE is_active AND name = 'cause_scenario'").fetchall()
+        rain_rows = conn.execute("SELECT count(*) FROM hotspot_rain_risk").fetchone()[0]
     imported = batches > 0 and (not raw or batches >= len(raw))
     if not imported:
         print("資料庫還沒有完整的事故資料，開始匯入（約 1–2 分鐘）…")
@@ -83,6 +84,14 @@ def ensure_database() -> None:
         r = subprocess.run([sys.executable, str(ROOT / "ai" / "train_cause_model.py")], cwd=ROOT)
         if r.returncode != 0:
             print("⚠ AI 模型訓練失敗：伺服器仍會啟動，但 AI 預測暫時無法使用（之後可手動執行 ai/train_cause_model.py）")
+    # AI 任務 2：雨天校正需要氣象署授權碼（或已下載的快取）；沒有就略過，報告退回天候欄判斷
+    cached = (ROOT / "data" / "raw" / "cwa" / "C-B0025-001.json").exists()
+    if rain_rows == 0 and (env("CWA_API_KEY", "").strip() or cached):
+        print("計算雨天風險校正（氣象署測站雨量，約 1 分鐘）…")
+        args = [] if env("CWA_API_KEY", "").strip() else ["--offline"]
+        r = subprocess.run([sys.executable, str(ROOT / "ai" / "rain_risk.py"), *args], cwd=ROOT)
+        if r.returncode != 0:
+            print("⚠ 雨天風險校正失敗：伺服器仍會啟動，路口報告改用天候欄判斷（之後可手動執行 ai/rain_risk.py）")
 
 
 def ensure_frontend() -> None:

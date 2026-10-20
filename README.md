@@ -13,7 +13,7 @@ GitHub：https://github.com/DHKGOD/traffic-safety-app
 | 前端 | Vite ＋ Leaflet ＋ MapLibre 向量地圖（`frontend/`），Capacitor 8 包成 Android APK |
 | AI | scikit-learn 肇因預測（`ai/`，模型版本存在資料庫） |
 
-文件：[ER 圖](docs/er-diagram.md)・[資料庫筆數報告](docs/db-report.md)・[AI 測試結果](docs/ai-report.md)・[技術決策](docs/decisions.md)・[搬到雲端](docs/deploy-cloud.md)・[Claude／Codex 接力](docs/ai-handoff.md)・[交接](HANDOFF.md)・[任務](TASKS.md)
+文件：[ER 圖](docs/er-diagram.md)・[資料庫筆數報告](docs/db-report.md)・[AI 測試結果](docs/ai-report.md)・[AI 任務 2：雨天校正](docs/ai-report-rain.md)・[技術決策](docs/decisions.md)・[搬到雲端](docs/deploy-cloud.md)・[Claude／Codex 接力](docs/ai-handoff.md)・[交接](HANDOFF.md)・[任務](TASKS.md)
 
 ## 功能
 
@@ -23,6 +23,7 @@ GitHub：https://github.com/DHKGOD/traffic-safety-app
 | 晴天／雨天、時段模式 | 依事故發生時的天候與時段篩選危險路口（iOS 動作表切換） |
 | **天候自動模式** | 後端代查中央氣象署（最近自動雨量站的過去 1 小時雨量＋鄉鎮 3 小時降雨機率），下雨或降雨機率 ≥ 60% 自動切到雨天模式；每 10 分鐘更新。授權碼只放伺服器 `.env` 的 `CWA_API_KEY`，沒設定時 App 自動隱藏此選項 |
 | 路口體檢報告 | 事故數、受傷、雨天與夜間占比、24 小時分布、主要肇因、事故型態、車種、年齡、改善建議、附近回報；可匯出 HTML（列印成 PDF） |
+| **AI 雨天校正** | 用氣象署測站每日實際雨量判斷事故當天是否下雨，取代「天候欄＋全國雨天比例」的舊算法；路口報告的晴天／雨天說明依校正結果（[測試結果](docs/ai-report-rain.md)） |
 | **AI 情境預測** | 選天候、時段、交通工具、年齡，預測這個路口最可能的事故肇因與提醒；每次預測記錄模型版本（[測試結果](docs/ai-report.md)） |
 | 模擬行走 | 藍點沿路線移動，接近危險路口時語音＋提示音＋紅框（平板沒有 GPS 也能展示） |
 | **背景守護模式**（Android） | 切到 Google 地圖或滑手機時，接近危險路口跳出「靈動島」懸浮提醒＋語音＋震動；依速度自動判斷步行／騎車／開車，搭大眾運輸可靜音；展示用路線模擬 |
@@ -86,6 +87,7 @@ uv sync                        # Python 套件
 cd frontend && npm install
 npm run dev                    # 前端開發伺服器 http://localhost:5173（API 位址在設定頁填 http://127.0.0.1:8000）
 uv run python ai/train_cause_model.py   # 重新訓練 AI（約 2 分鐘，寫入 model_version 與 docs/ai-report.md）
+uv run python ai/rain_risk.py           # AI 任務 2：氣象署測站雨量校正（需 CWA_API_KEY；寫入 hotspot_rain_risk 與 docs/ai-report-rain.md）
 ```
 
 ### 測試（每次修改後都要跑）

@@ -45,7 +45,7 @@
 | ✅ | 匯出路口報告、後台頁、App 圖示與啟動畫面 | Claude |
 | ✅ | UI：Apple 地圖風格地圖頁、Apple 字級、改名「有路安」 | Claude |
 | ⬜ | **實機驗證新 UI、背景模擬、護航小圖示**（見 HANDOFF「下一步」1） | 待指派（需手機解鎖） |
-| ⬜ | AI 天候風險：用氣象署測站降雨時數校正（見 HANDOFF「下一步」2） | 待指派 |
+| ✅ | AI 任務 2 天候風險校正：氣象署測站每日雨量、Poisson 每日事故模型、路口雨天標記（檢定＋BH），報告 docs/ai-report-rain.md | Claude |
 | ⏸ | App 內更新（GitHub Releases）：程式已寫、未 commit，等使用者決定 | 使用者 |
 | ⬜ | Codex 審查 `40b7dee..HEAD`（地圖標記、改名、字型、路線線寬） | 待指派 |
 | ⬜ | 平板橫式版面實機測試 | 使用者＋agent |

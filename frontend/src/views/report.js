@@ -40,9 +40,14 @@ function whenText(d) {
   const avg = d.weekday.reduce((a, b) => a + b, 0) / 7
   const wmax = Math.max(...d.weekday)
   if (avg > 0 && wmax >= avg * 1.35) parts.push(`<b>星期${WEEK[d.weekday.indexOf(wmax)]}</b>較多`)
-  // 天候一定說：晴天或雨天（使用者要求）。台灣整體約一成事故在雨天，以此為基準
+  // 天候一定說：晴天或雨天（使用者要求）。優先用 AI 任務 2 的測站雨量校正結果（和同一區預期比，經檢定）；
+  // 沒有校正資料時才退回天候欄的舊判斷（台灣整體約一成事故在雨天）
   const extra = []
-  if (s.rain_ratio >= 0.2) extra.push('<b>雨天</b>特別容易出事，下雨要特別小心')
+  const rl = d.rain_risk?.level
+  if (rl === 'rain_high') extra.push('<b>雨天</b>特別容易出事，下雨要特別小心')
+  else if (rl === 'rain_low') extra.push('大多發生在<b>晴天</b>')
+  else if (rl === 'normal') extra.push('<b>晴天、雨天</b>都會發生')
+  else if (s.rain_ratio >= 0.2) extra.push('<b>雨天</b>特別容易出事，下雨要特別小心')
   else if (s.rain_ratio >= 0.1) extra.push('<b>晴天、雨天</b>都常發生')
   else extra.push('大多發生在<b>晴天</b>')
   if (s.night_ratio >= 0.35 && HOUR_PART(best) !== '晚上' && HOUR_PART(best) !== '深夜') extra.push('<b>晚上</b>也常發生，注意照明與視線')
