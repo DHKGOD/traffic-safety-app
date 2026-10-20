@@ -101,10 +101,22 @@ export const walkerIcon = () => L.divIcon({ className: '', html: '<div class="wa
 export function drawRoute(map, points) {
   const opt = { lineCap: 'round', lineJoin: 'round', interactive: false }
   // 半透明：底下的道路與路名會透出來（使用者回饋：太深像畫上去的線）
-  const shadow = L.polyline(points, { ...opt, color: '#000', weight: 17, opacity: 0.06, className: 'route-shadow' })
-  const casing = L.polyline(points, { ...opt, color: '#1d5fd1', weight: 12, opacity: 0.5 })
-  const line = L.polyline(points, { ...opt, color: '#4b9dff', weight: 7.5, opacity: 0.7 })
-  return L.featureGroup([shadow, casing, line]).addTo(map)
+  const shadow = L.polyline(points, { ...opt, color: '#000', opacity: 0.06, className: 'route-shadow' })
+  const casing = L.polyline(points, { ...opt, color: '#1d5fd1', opacity: 0.5 })
+  const line = L.polyline(points, { ...opt, color: '#4b9dff', opacity: 0.7 })
+  // 線寬隨縮放調整，拉近時也不會比道路還寬（使用者回饋：太粗、超出道路）
+  const fit = () => {
+    const z = map.getZoom()
+    const [c, l] = z >= 17 ? [8, 5] : z >= 15 ? [6.5, 4] : [5, 3]
+    shadow.setStyle({ weight: c + 4 })
+    casing.setStyle({ weight: c })
+    line.setStyle({ weight: l })
+  }
+  fit()
+  map.on('zoomend', fit)
+  const group = L.featureGroup([shadow, casing, line]).addTo(map)
+  group.on('remove', () => map.off('zoomend', fit))
+  return group
 }
 
 export { L }
