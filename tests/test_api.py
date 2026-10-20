@@ -61,6 +61,26 @@ def test_near_fallback_matches_postgis(client):
         assert abs(h["distance_m"] - da[h["id"]]) <= max(3, 0.006 * da[h["id"]])
 
 
+@pytest.mark.parametrize("fallback", [False, True])
+def test_near_complete_keeps_low_count_hotspots_in_dense_area(client, fallback):
+    """守護與範圍預覽不能因全區前 200 名而遺漏眼前的低事故數路口。"""
+    original = db.postgis
+    if fallback:
+        db.postgis = False
+    try:
+        params = {"lat": 25.0478, "lon": 121.5170, "radius": 3000, "limit": 200}
+        limited = client.get("/api/hotspots/near", params=params).json()
+        full = client.get("/api/hotspots/near", params={**params, "complete": True}).json()
+        nearby = client.get("/api/hotspots/near", params={**params, "radius": 500}).json()
+        assert limited["count"] == 200
+        assert full["count"] > limited["count"]
+        assert {h["id"] for h in nearby["hotspots"]} <= {h["id"] for h in full["hotspots"]}
+        assert all(h["distance_m"] <= 3000 for h in full["hotspots"])
+        assert client.get("/api/hotspots/near", params={**params, "radius": 5001, "complete": True}).status_code == 422
+    finally:
+        db.postgis = original
+
+
 def test_weather_filter_reduces_counts(client):
     params = {"lat": FJU[0], "lon": FJU[1], "radius": 2000, "limit": 200}
     allw = {h["id"]: h["filtered_count"] for h in client.get("/api/hotspots/near", params=params).json()["hotspots"]}

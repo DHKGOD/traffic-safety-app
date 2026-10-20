@@ -31,7 +31,8 @@ def _decorate(row: dict[str, Any]) -> dict[str, Any]:
 def near(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180),
          radius: int = Query(500, ge=50, le=5000, description="半徑（公尺）"),
          weather: Weather = Weather.all, period: Period = Period.all,
-         limit: int = Query(30, ge=1, le=200)) -> dict[str, Any]:
+         limit: int = Query(30, ge=1, le=200),
+         complete: bool = Query(False, description="取得半徑內全部路口，供範圍預覽與背景守護使用；不套用 limit")) -> dict[str, Any]:
     af = accident_filter_sql(weather, period)
     p = {"lat": lat, "lon": lon, "radius": radius, "limit": limit,
          "dlat": radius / 111000, "dlon": radius / (111000 * max(0.2, abs(math.cos(math.radians(lat)))))}
@@ -42,12 +43,14 @@ def near(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180
         dist = haversine_sql("h.lat", "h.lon")
         where = (f"h.lat BETWEEN %(lat)s - %(dlat)s AND %(lat)s + %(dlat)s "
                  f"AND h.lon BETWEEN %(lon)s - %(dlon)s AND %(lon)s + %(dlon)s AND {dist} <= %(radius)s")
+    # 排行保留筆數限制；守護與範圍預覽必須取得完整候選，避免低事故數的近處路口被遠處路口擠掉。
+    limit_sql = "" if complete else "LIMIT %(limit)s"
     sql = f"""SELECT {HOTSPOT_COLS}, {dist} AS distance_m, count(a.id) AS filtered_count
               FROM hotspot h JOIN accident a ON a.hotspot_id = h.id
               WHERE {where} {af}
               GROUP BY h.id
-              ORDER BY filtered_count DESC, h.risk_score DESC
-              LIMIT %(limit)s"""
+              ORDER BY filtered_count DESC, h.risk_score DESC, h.id
+              {limit_sql}"""
     with db.conn() as c:
         rows = [_decorate(r) for r in c.execute(sql, p).fetchall()]
     return {"center": {"lat": lat, "lon": lon}, "radius_m": radius, "weather": weather, "period": period,

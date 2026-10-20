@@ -306,7 +306,7 @@ test('排行：附近（GPS 目前位置）／全國、開報告', async ({ page
   await expect(page.locator('[data-root="rank"] .report-hero')).toBeVisible()
 })
 
-test('排行：附近範圍選擇（小地圖同步顯示範圍內危險點、套用後保留）', async ({ page }) => {
+test('排行：附近範圍選擇（小地圖同步顯示範圍內危險點、套用後保留）', async ({ page, request }) => {
   await openApp(page)
   await page.locator('[data-tab="rank"]').click()
   await expect(page.locator('[data-radius]')).toContainText('2 公里')
@@ -319,6 +319,8 @@ test('排行：附近範圍選擇（小地圖同步顯示範圍內危險點、�
   await page.locator('.modal .segmented button', { hasText: '500m' }).click()
   const n05 = Number(await num.textContent())
   expect(n5).toBeGreaterThan(n05)
+  const actual = await request.get('/api/hotspots/near?lat=25.0478&lon=121.5170&radius=500&limit=200')
+  expect(n05).toBe((await actual.json()).count) // 稠密市區的小範圍也不能漏算低事故數路口
   await expect(page.locator('.modal .rp-levels')).toContainText('高風險')
   await expect(page.locator('.modal .leaflet-overlay-pane path')).toHaveCount(n05 + 1) // 範圍圈＋每個危險點
   await page.locator('.modal [data-right]').click()
@@ -327,6 +329,22 @@ test('排行：附近範圍選擇（小地圖同步顯示範圍內危險點、�
   await page.reload()
   await page.locator('[data-tab="rank"]').click()
   await expect(page.locator('[data-radius]')).toContainText('500 公尺')
+})
+
+test('排行：移動位置後返回附近會查詢新位置', async ({ page, context }) => {
+  await openApp(page)
+  await page.locator('[data-tab="rank"]').click()
+  await expect(page.locator('[data-root="rank"] .hs-cell').first()).toBeVisible()
+  await page.locator('[data-tab="map"]').click()
+  await context.setGeolocation({ latitude: 24.1477, longitude: 120.6736 })
+  const updated = page.waitForResponse((res) => {
+    const url = new URL(res.url())
+    return url.pathname === '/api/hotspots/near' && url.searchParams.get('lat') === '24.14770' && url.searchParams.get('lon') === '120.67360'
+  }, { timeout: 15000 })
+  await page.locator('[data-tab="rank"]').click()
+  expect((await updated).ok()).toBeTruthy()
+  await expect(page.locator('[data-root="rank"] .hs-cell').first()).toBeVisible()
+  await expect(page.locator('[data-root="rank"] .cell-sub').first()).toContainText(/西區|中區|北區|東區|南區/)
 })
 
 test('設定：危險通知偏好會保存；開發者選項可直接開始模擬行走', async ({ page }) => {

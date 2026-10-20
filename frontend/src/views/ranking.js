@@ -33,7 +33,7 @@ async function myPosition() {
     let perm = (await Geolocation.checkPermissions()).location
     if (perm === 'prompt' || perm === 'prompt-with-rationale') perm = (await Geolocation.requestPermissions()).location
     if (perm !== 'granted') throw new Error('no permission')
-    const p = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 2 * 60 * 1000 })
+    const p = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 0 })
     return { lat: p.coords.latitude, lon: p.coords.longitude, gps: true }
   } catch {
     const s = state.route.start
@@ -93,10 +93,11 @@ export function rankingView({ openReport }) {
     const circle = L.circle([pos.lat, pos.lon], { radius: r, color: '#0a84ff', weight: 2, fillColor: '#0a84ff', fillOpacity: 0.08 }).addTo(map)
     L.marker([pos.lat, pos.lon], { icon: meIcon(), interactive: false }).addTo(map)
     const dots = L.layerGroup().addTo(map)
-    let all = []
+    let all = null
     function draw() {
       circle.setRadius(r)
       map.fitBounds(circle.getBounds(), { padding: [14, 14], animate: true })
+      if (!all) return // 資料還沒載入時保持「–」，避免把載入中誤顯示為零處。
       dots.clearLayers()
       const inside = all.filter((h) => h.distance_m <= r)
       inside.forEach((h) => L.circleMarker([h.lat, h.lon], {
@@ -110,7 +111,7 @@ export function rankingView({ openReport }) {
     }
     setTimeout(() => { map.invalidateSize(); draw() }, 420) // 等彈出動畫結束
     try {
-      const q = new URLSearchParams({ lat: pos.lat.toFixed(5), lon: pos.lon.toFixed(5), radius: Math.max(...RADII), limit: 200, weather: state.weather, period: state.period })
+      const q = new URLSearchParams({ lat: pos.lat.toFixed(5), lon: pos.lon.toFixed(5), radius: Math.max(...RADII), complete: true, weather: state.weather, period: state.period })
       all = (await api(`/api/hotspots/near?${q}`)).hotspots
       draw()
     } catch (e) {
@@ -328,7 +329,7 @@ export function rankingView({ openReport }) {
   return {
     el: p.el,
     onShow() {
-      if (loaded) return
+      if (loaded && (scope !== 'near' || searched)) return
       loaded = true
       if (scope === 'custom' && !custom) { scope = 'near'; seg.setValue('near') }
       load()

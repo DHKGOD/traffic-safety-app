@@ -321,7 +321,8 @@ public class GuardianService extends Service {
         loading = true;
         io.execute(() -> {
             try {
-                URL url = new URL(server + "/api/hotspots/near?lat=" + lat + "&lon=" + lon + "&radius=" + RADIUS_M + "&limit=200");
+                // 守護需要完整的附近候選，不能只取全區事故數前 200 名，否則眼前的路口也可能漏掉。
+                URL url = new URL(server + "/api/hotspots/near?lat=" + lat + "&lon=" + lon + "&radius=" + RADIUS_M + "&complete=true");
                 HttpURLConnection c = (HttpURLConnection) url.openConnection();
                 c.setConnectTimeout(8000);
                 c.setReadTimeout(15000);
