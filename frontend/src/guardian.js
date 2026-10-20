@@ -98,6 +98,13 @@ export async function openNavigation(dest, mode) {
   return Native.openNavigation({ lat: dest.lat, lon: dest.lon, mode })
 }
 
+/** 開發者選項顯示用：定位、通知、懸浮視窗權限。 */
+export async function guardianPermissions() {
+  if (!isNative()) return {}
+  const p = await Native.checkPermissions()
+  return { ...p, overlay: (await Native.overlayStatus()).allowed }
+}
+
 export async function testGuardianAlert() {
   if (!isNative()) throw new Error('通知測試需要安裝 Android App')
   return Native.testAlert()

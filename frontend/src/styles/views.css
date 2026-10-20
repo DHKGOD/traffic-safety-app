@@ -34,11 +34,27 @@
 
 /* 排行頁 */
 .link-btn { color: var(--blue); font-size: 15px; font-weight: 500; display: inline-flex; align-items: center; gap: 2px; padding: 2px 0; }
-.rank-head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; text-transform: none; }
-.rank-head-row .rank-act { display: flex; gap: 14px; flex: none; }
-.rank-head-row .link-btn { font-size: 14px; }
 .rank-search .q-ph { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rank-search.has-q { color: var(--label); font-weight: 500; }
+.rank-chips { margin-top: 12px; }
+.rank-chips .rank-act { display: contents; }
+.scope-chip .sc-t { max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
+.rank-head { text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 排行清單：名次、文字、件數三欄對齊；件數欄固定寬度讓數字直向對齊 */
+.rank-cell { gap: 12px; min-height: 64px; --sep-inset: 62px; }
+.rank-cell .cell-main { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; }
+.rank-cell .cell-title, .rank-cell .cell-sub { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-cell .hs-count { width: 44px; text-align: center; }
+.rank-cell .chev { margin-left: -4px; }
+
+/* 附近範圍選擇（小地圖＋距離） */
+.rp-map { height: 260px; border-radius: 16px; overflow: hidden; position: relative; background: var(--card-2); }
+.rp-count { display: flex; align-items: baseline; justify-content: center; gap: 6px; margin-top: 16px; }
+.rp-num { font-size: 34px; font-weight: 800; font-family: var(--font-rounded); letter-spacing: -0.02em; }
+.rp-text { font-size: 15px; color: var(--label-2); }
+.rp-levels { display: flex; justify-content: center; gap: 16px; margin: 6px 0 16px; font-size: 13px; color: var(--label-2); }
+.rp-lv { display: inline-flex; align-items: center; gap: 5px; }
+.rp-lv i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 
 /* 右側圓形浮動按鈕（Google 地圖風格：各自獨立的圓鈕） */
 .map-fabs {

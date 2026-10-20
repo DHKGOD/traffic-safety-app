@@ -19,6 +19,7 @@ import { openSubmit } from './views/submit.js'
 import { startWalk } from './walk.js'
 import { initGuardian } from './guardian.js'
 import { initWeather } from './weather.js'
+import { syncAlertPrefs } from './alerts.js'
 import { applyElderMode } from './family.js'
 import { familyView } from './views/family.js'
 
@@ -76,6 +77,13 @@ stacks.feed.setRoot(feedView({
 stacks.settings.setRoot(settingsView({
   openAdmin: () => stacks.settings.push(adminView()),
   openFamily: () => stacks.settings.push(familyView({ goMap: () => { while (stacks.settings.pop()) { /* 回到設定首頁 */ } switchTab('map') } })),
+  // 開發者選項：切到地圖並以指定倍速開始模擬行走（等地圖與路口載入）
+  devWalk: (speed) => {
+    switchTab('map')
+    const t0 = Date.now()
+    const go = () => (mapPage.map && mapPage.hotspots.length) || Date.now() - t0 > 8000 ? mapPage.beginWalk(speed) : setTimeout(go, 200)
+    setTimeout(go, 400)
+  },
 }))
 
 $('.tabbar').addEventListener('click', (e) => {
@@ -154,6 +162,7 @@ function onboarding() {
 }
 
 initGuardian().catch(() => { /* 網頁版或外掛未載入 */ })
+syncAlertPrefs() // 危險通知設定同步到原生服務
 if (!getServer()) onboarding()
 else startPolling()
 initWeather() // 伺服器變更時會自動重查

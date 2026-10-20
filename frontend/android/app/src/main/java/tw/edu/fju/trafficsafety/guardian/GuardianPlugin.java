@@ -146,6 +146,24 @@ public class GuardianPlugin extends Plugin {
     private IslandOverlay island;
     private int lastNotifyId;
 
+    /** 設定頁「危險通知」：style、level、distance、voice、sound、vibrate。守護執行中立即套用提醒距離。 */
+    @PluginMethod
+    public void setAlertPrefs(PluginCall call) {
+        String style = call.getString("style", "island");
+        String level = call.getString("level", "low");
+        GuardianService.alertPrefs(getContext()).edit()
+                .putString("style", java.util.Arrays.asList("island", "both", "banner").contains(style) ? style : "island")
+                .putString("level", java.util.Arrays.asList("low", "medium", "high").contains(level) ? level : "low")
+                .putFloat("distance", (float) Math.max(0.5, Math.min(2.0, call.getDouble("distance", 1.0))))
+                .putBoolean("voice", call.getBoolean("voice", true))
+                .putBoolean("sound", call.getBoolean("sound", true))
+                .putBoolean("vibrate", call.getBoolean("vibrate", true))
+                .apply();
+        GuardianService s = GuardianService.instance;
+        if (s != null) s.applyAlertPrefs();
+        call.resolve();
+    }
+
     /**
      * App 內模擬行走接近危險路口時呼叫：跳出系統通知＋靈動島＋震動（語音由 App 自己播）。
      * 參數：id、name、level、meters、accidents、tip。沒有通知權限時會先詢問。
@@ -223,26 +241,15 @@ public class GuardianPlugin extends Plugin {
         else sendTest(call);
     }
 
+    /** 測試提醒：用和實際提醒相同的流程（依設定的提醒方式、聲音、震動）。 */
     private void sendTest(PluginCall call) {
-        NotificationCompat.Builder b = new NotificationCompat.Builder(getContext(), GuardianService.CH_ALERT)
-                .setSmallIcon(R.drawable.ic_stat_guardian)
-                .setContentTitle("⚠ 測試提醒：前方危險路口")
-                .setContentText("這是測試。接近危險路口時會像這樣跳出提醒並語音播報。")
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
-                .setColor(0xFFFF3B30)
-                .setAutoCancel(true)
-                .setTimeoutAfter(15000)
-                .setGroup("guardian_test")
-                .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_ALL);
-        try {
-            NotificationManagerCompat.from(getContext()).notify(GuardianService.ID_ALERT, b.build());
-            new IslandOverlay(getContext()).show("測試提醒・前方危險路口", "中正路 / 思源路・80 公尺・事故 25 件", 0xFFFF3B30, 6000);
-            JSObject r = new JSObject();
-            r.put("overlay", IslandOverlay.allowed(getContext()));
-            call.resolve(r);
-        } catch (SecurityException e) {
-            call.reject("沒有通知權限", "NO_NOTIFICATION");
-        }
+        if (island == null) island = new IslandOverlay(getContext());
+        lastNotifyId = GuardianService.postAlert(getContext(), island, lastNotifyId, 0,
+                "⚠ 測試提醒：前方危險路口", "中正路 / 思源路・約 80 公尺・歷史事故 25 件",
+                "這是測試。接近危險路口時會像這樣提醒。", "high",
+                "測試提醒・前方危險路口", "中正路 / 思源路・80 公尺・事故 25 件");
+        JSObject r = new JSObject();
+        r.put("overlay", IslandOverlay.allowed(getContext()));
+        call.resolve(r);
     }
 }

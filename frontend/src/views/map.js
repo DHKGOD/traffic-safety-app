@@ -207,11 +207,23 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     if (act === 'fit') fitRoute()
     if (act === 'report') { const c = map.getCenter(); openSubmit({ lat: c.lat, lon: c.lng }) }
     if (act === 'walk' && !document.querySelector('.walk-panel')) {
-      map.closePopup()
-      page.classList.add('walking')
-      startWalk({ map, hotspots, route: state.route, onStop: () => page.classList.remove('walking') })
+      beginWalk()
     }
   })
+
+  /** 開始模擬行走；speed 為初始倍速（開發者選項用）。出錯時一定還原畫面，不會卡在「行走中」。 */
+  function beginWalk(speed) {
+    if (!map || document.querySelector('.walk-panel')) return
+    try { map.closePopup() } catch { /* 地圖動畫中偶爾會丟例外，不影響 */ }
+    page.classList.add('walking')
+    try {
+      startWalk({ map, hotspots, route: state.route, speed, onStop: () => page.classList.remove('walking') })
+    } catch (e) {
+      page.classList.remove('walking')
+      document.querySelector('.walk-panel')?.remove()
+      toastError(`模擬行走無法開始：${e.message}`)
+    }
+  }
 
   function select(h, fromMap) {
     haptic(8)
@@ -423,6 +435,7 @@ export function mapView({ openReport, openSubmit, startWalk }) {
     get map() { return map },
     get hotspots() { return hotspots },
     reload: load,
+    beginWalk,
   }
 }
 

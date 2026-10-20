@@ -1,9 +1,13 @@
 // 設定：伺服器位址（換雲端不必重新打包）、外觀、後台、關於
 import { api, deviceId, getServer, isNative, normalize, setServer } from '../api.js'
 import { icon } from '../icons.js'
-import { emit, startPolling } from '../store.js'
+import { emit, startPolling, state } from '../store.js'
 import { $, DISCLAIMER, actionSheet, esc, fmt, makePage, segmented, toast, toastError } from '../ui.js'
-import { GUARDIAN_MODES, guardianMode, overlayAllowed, requestOverlay, setGuardianMode, testGuardianAlert } from '../guardian.js'
+import {
+  GUARDIAN_MODES, guardianAvailable, guardianMode, guardianPermissions, guardianState, openNavigation, overlayAllowed,
+  requestOverlay, setGuardianMode, startGuardian, stopGuardian, testGuardianAlert,
+} from '../guardian.js'
+import { ALERT_DISTANCES, ALERT_LEVELS, ALERT_STYLES, alertPrefs, setAlertPrefs } from '../alerts.js'
 
 export function applyTheme(t) {
   if (t === 'auto') delete document.documentElement.dataset.theme
@@ -21,7 +25,7 @@ export async function testServer(url) {
   return h
 }
 
-export function settingsView({ openAdmin, openFamily }) {
+export function settingsView({ openAdmin, openFamily, devWalk }) {
   const p = makePage({ title: '設定' })
   p.body.innerHTML = `
     <div class="section" style="margin-top:4px">
@@ -52,6 +56,44 @@ export function settingsView({ openAdmin, openFamily }) {
     </div>
 
     <div class="section">
+      <div class="section-header">危險通知</div>
+      <div class="list">
+        <button class="cell tappable" data-pref="style" style="--sep-inset:58px">
+          <span class="cell-icon" style="background:#000">${icon('sparkles')}</span>
+          <span class="cell-main"><span class="cell-title">提醒方式</span></span>
+          <span class="cell-value pv-style"></span><span class="chev">${icon('chevronRight')}</span>
+        </button>
+        <button class="cell tappable" data-pref="level" style="--sep-inset:58px">
+          <span class="cell-icon" style="background:var(--orange)">${icon('warningFill')}</span>
+          <span class="cell-main"><span class="cell-title">提醒等級</span></span>
+          <span class="cell-value pv-level"></span><span class="chev">${icon('chevronRight')}</span>
+        </button>
+        <button class="cell tappable" data-pref="distance" style="--sep-inset:58px">
+          <span class="cell-icon" style="background:var(--teal)">${icon('route')}</span>
+          <span class="cell-main"><span class="cell-title">提醒時機</span></span>
+          <span class="cell-value pv-distance"></span><span class="chev">${icon('chevronRight')}</span>
+        </button>
+        <label class="cell" style="--sep-inset:58px">
+          <span class="cell-icon" style="background:var(--blue)">${icon('speaker')}</span>
+          <span class="cell-main"><span class="cell-title">語音播報</span></span>
+          <input type="checkbox" class="ios-switch" data-sw="voice">
+        </label>
+        <label class="cell" style="--sep-inset:58px">
+          <span class="cell-icon" style="background:var(--pink, #ff2d55)">${icon('bolt')}</span>
+          <span class="cell-main"><span class="cell-title">提示音</span></span>
+          <input type="checkbox" class="ios-switch" data-sw="sound">
+        </label>
+        <label class="cell" style="--sep-inset:58px">
+          <span class="cell-icon" style="background:var(--purple)">${icon('hand')}</span>
+          <span class="cell-main"><span class="cell-title">震動</span></span>
+          <input type="checkbox" class="ios-switch" data-sw="vibrate">
+        </label>
+        <button class="cell tappable" data-gtest style="justify-content:center;color:var(--blue);font-weight:600">送出測試提醒</button>
+      </div>
+      <div class="section-footer pv-hint"></div>
+    </div>
+
+    <div class="section">
       <div class="section-header">背景守護</div>
       <div class="list">
         <button class="cell tappable" data-gmode style="--sep-inset:58px">
@@ -61,16 +103,45 @@ export function settingsView({ openAdmin, openFamily }) {
         </button>
         <button class="cell tappable" data-overlay style="--sep-inset:58px">
           <span class="cell-icon" style="background:#000">${icon('sparkles')}</span>
-          <span class="cell-main"><span class="cell-title" style="display:block">靈動島懸浮提醒</span></span>
+          <span class="cell-main"><span class="cell-title" style="display:block">靈動島與護航小圖示權限</span></span>
           <span class="cell-value ov-state">—</span><span class="chev">${icon('chevronRight')}</span>
         </button>
-        <button class="cell tappable" data-gtest style="--sep-inset:58px">
-          <span class="cell-icon" style="background:var(--red)">${icon('warningFill')}</span>
-          <span class="cell-main"><span class="cell-title" style="display:block">測試提醒通知</span></span>
+      </div>
+      <div class="section-footer">在地圖右側按 ${icon('shield')} 開啟。「靈動島」在螢幕最上方跳出黑色膠囊提醒，不受手機通知彈出設定影響（三星預設的「簡要」通知不會彈出橫幅）；開著 Google 地圖導航時，畫面邊緣會有護航小圖示顯示最近危險路口的距離。「自動判斷」依速度調整提醒距離，搭公車或捷運時可選「不提醒」。</div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">開發者選項</div>
+      <div class="list">
+        <button class="cell tappable" data-dev="walk" style="--sep-inset:58px">
+          <span class="cell-icon" style="background:var(--blue)">${icon('walk')}</span>
+          <span class="cell-main"><span class="cell-title" style="display:block">模擬行走（App 內）</span>
+          <span class="cell-sub" style="display:block">沿目前路線走，接近路口跳提醒；按主畫面鍵會轉到背景繼續</span></span>
           <span class="chev">${icon('chevronRight')}</span>
         </button>
+        <button class="cell tappable" data-dev="bg" style="--sep-inset:58px">
+          <span class="cell-icon" style="background:var(--indigo)">${icon('shield')}</span>
+          <span class="cell-main"><span class="cell-title" style="display:block">背景守護模擬</span>
+          <span class="cell-sub" style="display:block">原生服務沿路線模擬；切到其他 App 看靈動島與小圖示</span></span>
+          <span class="chev">${icon('chevronRight')}</span>
+        </button>
+        <button class="cell tappable" data-dev="nav" style="--sep-inset:58px">
+          <span class="cell-icon" style="background:var(--green)">${icon('route')}</span>
+          <span class="cell-main"><span class="cell-title" style="display:block">導航護航模擬</span>
+          <span class="cell-sub" style="display:block">模擬沿路線移動，同時打開 Google 地圖導航</span></span>
+          <span class="chev">${icon('chevronRight')}</span>
+        </button>
+        <button class="cell tappable" data-dev="stop" style="--sep-inset:58px">
+          <span class="cell-icon" style="background:var(--gray)">${icon('stop')}</span>
+          <span class="cell-main"><span class="cell-title" style="display:block">停止所有模擬與守護</span></span>
+        </button>
+        <div class="cell" style="--sep-inset:58px">
+          <span class="cell-icon" style="background:var(--green)">${icon('checkCircle')}</span>
+          <span class="cell-main"><span class="cell-title" style="display:block">權限狀態</span>
+          <span class="cell-sub dev-perm" style="display:block">—</span></span>
+        </div>
       </div>
-      <div class="section-footer">在地圖右上角按 ${icon('shield')} 開啟。「靈動島懸浮提醒」會在螢幕最上方跳出黑色膠囊提醒，不受手機通知彈出設定影響（三星預設的「簡要」通知不會彈出橫幅）。開啟後切到 Google 地圖或滑手機，接近危險路口時會跳出通知並語音提醒；「自動判斷」會依速度調整提醒距離（步行 60 公尺、騎車 120 公尺、開車 220 公尺），搭公車或捷運時可選「不提醒」。</div>
+      <div class="section-footer">給開發與展示用：不必真的走路，也能測試提醒、背景執行與 Google 地圖護航。模擬使用地圖頁目前的路線。</div>
     </div>
 
     <div class="section">
@@ -158,9 +229,79 @@ export function settingsView({ openAdmin, openFamily }) {
     try { $('.ov-state', p.el).textContent = (await overlayAllowed()) ? '已開啟' : '未開啟' } catch { /* 網頁版 */ }
   }
   renderOverlay()
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) renderOverlay() }) // 從系統設定頁回來時更新
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { renderOverlay(); renderPerms() } }) // 從系統設定頁回來時更新
+
+  /* ---------- 危險通知 ---------- */
+  const PREF_OPTS = { style: ALERT_STYLES, level: ALERT_LEVELS, distance: ALERT_DISTANCES }
+  const PREF_TITLE = { style: '提醒方式', level: '提醒等級', distance: '提醒時機' }
+  function renderPrefs() {
+    const pr = alertPrefs()
+    for (const k of Object.keys(PREF_OPTS)) {
+      $(`.pv-${k}`, p.el).textContent = PREF_OPTS[k].find((o) => o.value === pr[k])?.label.replace('（推薦）', '') || ''
+    }
+    for (const sw of p.el.querySelectorAll('[data-sw]')) sw.checked = !!pr[sw.dataset.sw]
+    const style = ALERT_STYLES.find((o) => o.value === pr.style)
+    const quiet = !pr.voice && !pr.sound && !pr.vibrate ? '目前為完全靜音：只有畫面提醒。' : ''
+    $('.pv-hint', p.el).textContent = `${style.hint}。${quiet}設定會套用到模擬行走、背景守護與導航護航。`
+  }
+  async function pickPref(k) {
+    const pr = alertPrefs()
+    const v = await actionSheet({ title: PREF_TITLE[k], value: pr[k],
+      options: PREF_OPTS[k].map((o) => ({ value: o.value, label: o.hint && k === 'distance' ? `${o.label}（${o.hint}）` : o.label })) })
+    if (v !== undefined && v !== pr[k]) { await setAlertPrefs({ [k]: v }); renderPrefs() }
+  }
+  p.el.addEventListener('change', async (e) => {
+    const sw = e.target.closest('[data-sw]')
+    if (sw) { await setAlertPrefs({ [sw.dataset.sw]: sw.checked }); renderPrefs() }
+  })
+  renderPrefs()
+
+  /* ---------- 開發者選項 ---------- */
+  async function renderPerms() {
+    if (!isNative()) { $('.dev-perm', p.el).textContent = '網頁版：背景守護、通知、懸浮視窗需安裝 Android App'; return }
+    try {
+      const s = await guardianPermissions()
+      const ok = (v) => (v === 'granted' || v === true ? '✓' : '✕')
+      $('.dev-perm', p.el).textContent = `定位 ${ok(s.location)}・通知 ${ok(s.notifications)}・懸浮視窗 ${ok(s.overlay)}`
+    } catch { /* 舊版 App */ }
+  }
+  renderPerms()
+  async function dev(kind) {
+    const r = state.route
+    const sim = { simulate: r.points, simSpeed: r.mode === 'car' ? 14 : r.mode === 'bike' ? 6 : 4, mode: r.mode }
+    try {
+      if (kind === 'walk') {
+        const v = await actionSheet({ title: '模擬行走速度', message: `路線：${r.start.name} → ${r.end.name}`, value: '10',
+          options: [{ value: '1', label: '1×（實際步行速度）' }, { value: '4', label: '4×' }, { value: '10', label: '10×' }, { value: '30', label: '30×' }] })
+        if (v) devWalk?.(+v)
+        return
+      }
+      if (!guardianAvailable()) { toast('需要安裝 Android App 才能測試背景功能', { icon: 'shield', color: 'var(--blue)' }); return }
+      if (kind === 'stop') {
+        await stopGuardian()
+        document.querySelector('.walk-panel [data-w="stop"]')?.click()
+        toast('已停止所有模擬與守護', { icon: 'stop', color: 'var(--gray)' })
+        return
+      }
+      if (guardianState.running) await stopGuardian()
+      await startGuardian(sim)
+      if (kind === 'bg') {
+        toast('背景模擬已開始：按主畫面鍵切到其他 App，接近危險路口時會跳出提醒', { icon: 'shield', color: 'var(--indigo)', ms: 5000 })
+      } else {
+        toast('模擬已開始，正在打開 Google 地圖導航', { icon: 'route', color: 'var(--green)', ms: 3000 })
+        setTimeout(() => openNavigation(r.end, r.mode).catch((err) => toastError(err.message || '無法打開地圖')), 900)
+      }
+      if (!(await overlayAllowed())) setTimeout(() => toast('懸浮視窗權限未開啟：只會有系統通知，看不到靈動島與小圖示', { icon: 'sparkles', color: '#000', ms: 5000 }), 1200)
+    } catch (err) {
+      toastError(err.message || '無法開始模擬')
+    }
+  }
 
   p.el.addEventListener('click', (e) => {
+    const pref = e.target.closest('[data-pref]')?.dataset.pref
+    if (pref) return pickPref(pref)
+    const d = e.target.closest('[data-dev]')?.dataset.dev
+    if (d) return dev(d)
     if (e.target.closest('[data-test]')) test(true)
     if (e.target.closest('[data-admin]')) openAdmin()
     if (e.target.closest('[data-family]')) openFamily()

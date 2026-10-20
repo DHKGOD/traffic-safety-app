@@ -4,6 +4,7 @@ import { App as CapApp } from '@capacitor/app'
 import { TextToSpeech } from '@capacitor-community/text-to-speech'
 import { isNative } from './api.js'
 import { guardianState, handoffWalk, takeBackWalk, walkAlert } from './guardian.js'
+import { alertPrefs, levelPasses } from './alerts.js'
 import { icon } from './icons.js'
 import { L, walkerIcon } from './map-utils.js'
 import { $, LEVEL, el, esc, fmt, haptic, segmented } from './ui.js'
@@ -66,21 +67,22 @@ async function speak(text) {
   } catch { /* 沒有中文語音時只用提示音與紅框 */ }
 }
 
-export function startWalk({ map, hotspots, route: ROUTE, onOpenReport, onStop }) {
+export function startWalk({ map, hotspots, route: ROUTE, onOpenReport, onStop, speed: initialSpeed }) {
+  const prefs = alertPrefs() // 設定頁「危險通知」
   const BASE_MPS = { foot: WALK_MPS, bike: 4.5, car: 11 }[ROUTE.mode] || WALK_MPS // 依交通方式的實際速度
-  const ALERT_AT = { foot: ALERT_M, bike: 120, car: 250 }[ROUTE.mode] || ALERT_M   // 越快越早提醒
+  const ALERT_AT = ({ foot: ALERT_M, bike: 120, car: 250 }[ROUTE.mode] || ALERT_M) * prefs.distance // 越快越早提醒
   if (!map || document.querySelector('.walk-panel')) return
   const cum = cumulative(ROUTE.points)
   const total = cum.at(-1)
   let dist = 0
-  let speed = 4
+  let speed = [1, 4, 10, 30].includes(initialSpeed) ? initialSpeed : 4
   let playing = true
   let last = performance.now()
   const alerted = new Set()
   let frame = null
   let alertTimer = null
   const marker = L.marker(ROUTE.points[0], { icon: walkerIcon(), zIndexOffset: 2000 }).addTo(map)
-  map.flyTo(ROUTE.points[0], 17, { duration: 0.8 })
+  try { map.flyTo(ROUTE.points[0], 17, { duration: 0.8 }) } catch { map.setView(ROUTE.points[0], 17, { animate: false }) }
 
   const panel = el(`
     <div class="walk-panel" style="position:fixed;left:12px;right:12px;bottom:calc(var(--tabbar-h) + 12px);z-index:60;max-width:560px;margin:0 auto">
@@ -105,14 +107,14 @@ export function startWalk({ map, hotspots, route: ROUTE, onOpenReport, onStop })
     String(speed), (v) => { speed = +v }))
 
   // 第一次互動時解鎖音效（瀏覽器規定要使用者觸發）
-  beep()
+  if (prefs.sound) beep()
 
   function showAlert(h) {
-    haptic(300)
-    beep()
+    if (prefs.vibrate) haptic(300)
+    if (prefs.sound) beep()
     const tip = ROUTE.mode === 'car' ? '請減速，注意轉彎車與機車' : ROUTE.mode === 'bike' ? '請減速，注意左右來車與開車門' : '過馬路前左右看，別低頭看手機'
-    walkAlert(h, h.__ahead, tip) // App 版：同時跳出系統通知＋靈動島（和背景守護一樣）
-    speak(`注意，前方約${Math.round(h.__ahead)}公尺是危險路口，${h.name}，歷史事故${h.filtered_count}件，${tip}`)
+    walkAlert(h, h.__ahead, tip) // App 版：同時跳出靈動島／系統通知（依設定，和背景守護一樣）
+    if (prefs.voice) speak(`注意，前方約${Math.round(h.__ahead)}公尺是危險路口，${h.name}，歷史事故${h.filtered_count}件，${tip}`)
     frame?.remove()
     frame = document.body.appendChild(el('<div class="alert-frame"></div>'))
     const box = $('.walk-alert', panel)
@@ -139,7 +141,9 @@ export function startWalk({ map, hotspots, route: ROUTE, onOpenReport, onStop })
       dist = Math.min(total, dist + BASE_MPS * speed * dt)
       const pos = positionAt(ROUTE.points, cum, dist)
       marker.setLatLng(pos)
-      if (!map.getBounds().pad(-0.25).contains(pos)) map.panTo(pos, { animate: true, duration: 0.5 })
+      try {
+        if (!map.getBounds().pad(-0.25).contains(pos)) map.panTo(pos, { animate: true, duration: 0.5 })
+      } catch { /* MapLibre 動畫中偶爾換算座標失敗：下一格再跟 */ }
       $('.walk-prog', panel).style.width = `${(dist / total) * 100}%`
       const ahead = hotspots.filter((h) => h.along_m >= dist - 10).sort((a, b) => a.along_m - b.along_m)[0]
       if (ahead) {
@@ -148,14 +152,14 @@ export function startWalk({ map, hotspots, route: ROUTE, onOpenReport, onStop })
         if (gap <= ALERT_AT && !alerted.has(ahead.id)) {
           alerted.add(ahead.id)
           ahead.__ahead = Math.max(10, gap)
-          showAlert(ahead)
+          if (levelPasses(ahead.level, prefs)) showAlert(ahead) // 低於設定等級的路口不提醒
         }
       } else {
         $('.walk-next', panel).textContent = `沒有更多危險路口・剩 ${fmt.dist(total - dist)}`
       }
       if (dist >= total) {
         playing = false
-        speak(`已抵達目的地，${ROUTE.end.name}`)
+        if (prefs.voice) speak(`已抵達目的地，${ROUTE.end.name}`)
         $('.walk-next', panel).textContent = `已抵達 ${ROUTE.end.name}`
         $('[data-w="toggle"]', panel).innerHTML = icon('refresh')
       }

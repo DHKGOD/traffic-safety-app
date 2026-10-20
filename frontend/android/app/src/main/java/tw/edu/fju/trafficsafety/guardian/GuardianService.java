@@ -57,6 +57,10 @@ public class GuardianService extends Service {
     static final String CH_STATUS = "guardian_status";
     static final String CH_ALERT = "guardian_alert";
     static final String CH_HISTORY = "guardian_history";
+    // Android 8 以上聲音、震動綁在通知頻道上，所以依設定組合各用一個頻道
+    static final String CH_ALERT_V = "guardian_alert_vibrate";   // 只震動
+    static final String CH_ALERT_S = "guardian_alert_sound";     // 只有聲音
+    static final String CH_ALERT_Q = "guardian_alert_quiet";     // 不響不震（仍會跳出橫幅）
     static final int ID_STATUS = 7101;
     static final int ID_ALERT = 7102;
     static final double RELOAD_KM = 1.5;   // 離上次下載中心超過就重新下載附近路口
@@ -161,7 +165,7 @@ public class GuardianService extends Service {
             startLocationUpdates(false);
         }
         // 長輩模式：提醒距離 ×1.3、語音放慢
-        engine.setRadiusScale(elder ? 1.3 : 1.0);
+        applyAlertPrefs();
         if (tts != null) tts.setSpeechRate(elder ? 0.85f : 1.0f);
         sp.edit().putBoolean("simulating", simRoute != null).apply();
         bubble.show();
@@ -362,6 +366,7 @@ public class GuardianService extends Service {
 
     private void alert(GuardianEngine.Alert a) {
         GuardianEngine.Hotspot h = a.hotspot;
+        if (!levelPasses(this, h.level)) return; // 設定只提醒較高風險
         int meters = (int) Math.round(a.distance / 10.0) * 10;
         String level = "high".equals(h.level) ? "高風險" : "medium".equals(h.level) ? "中風險" : "注意";
         String title = "⚠ 前方危險路口・" + level;
@@ -382,9 +387,15 @@ public class GuardianService extends Service {
      */
     static int postAlert(Context ctx, IslandOverlay island, int prevId, int hotspotId, String title, String text,
                          String bigText, String level, String islandTitle, String islandSub) {
-        boolean useIsland = IslandOverlay.allowed(ctx);
-        if (useIsland) vibrate(ctx);
-        NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, useIsland ? CH_HISTORY : CH_ALERT)
+        // 設定頁「危險通知」：提醒方式（靈動島／兩者／只用橫幅）、聲音、震動
+        SharedPreferences ap = alertPrefs(ctx);
+        String style = ap.getString("style", "island");
+        boolean vib = ap.getBoolean("vibrate", true), snd = ap.getBoolean("sound", true);
+        boolean useIsland = IslandOverlay.allowed(ctx) && !"banner".equals(style);
+        boolean banner = !useIsland || "both".equals(style);
+        if (useIsland && !banner && vib) vibrate(ctx); // 只用靈動島時由 App 自己震動；有橫幅時由頻道震動
+        String channel = !banner ? CH_HISTORY : snd && vib ? CH_ALERT : vib ? CH_ALERT_V : snd ? CH_ALERT_S : CH_ALERT_Q;
+        NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, channel)
                 .setSmallIcon(R.drawable.ic_stat_guardian)
                 .setContentTitle(title)
                 .setContentText(text)
@@ -392,7 +403,8 @@ public class GuardianService extends Service {
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
                 .setColor(0xFFFF3B30)
-                .setVibrate(new long[]{0, 350, 150, 350})
+                .setVibrate(vib ? new long[]{0, 350, 150, 350} : null)
+                .setSilent(!snd && !vib)
                 .setAutoCancel(true)
                 .setTimeoutAfter(20000)
                 // 指定獨立群組：避免被系統和常駐通知自動合併（合併後會降成低重要性、不會彈出橫幅）
@@ -409,8 +421,25 @@ public class GuardianService extends Service {
         }
         // 靈動島懸浮提醒（有「顯示在其他應用程式上層」權限時）
         int color = "high".equals(level) ? 0xFFFF3B30 : "medium".equals(level) ? 0xFFFF9500 : 0xFFF5B800;
-        island.show(islandTitle, islandSub, color, 7000);
+        if (useIsland) island.show(islandTitle, islandSub, color, 7000);
         return id;
+    }
+
+    static SharedPreferences alertPrefs(Context ctx) {
+        return ctx.getSharedPreferences("alerts", Context.MODE_PRIVATE);
+    }
+
+    private static final java.util.List<String> LEVELS = java.util.Arrays.asList("low", "medium", "high");
+
+    /** 設定的「提醒等級」：低於它的路口不提醒。 */
+    static boolean levelPasses(Context ctx, String level) {
+        int min = LEVELS.indexOf(alertPrefs(ctx).getString("level", "low"));
+        return Math.max(0, LEVELS.indexOf(level)) >= Math.max(0, min);
+    }
+
+    /** 提醒距離倍數＝長輩模式（1.3）× 設定的「提醒時機」。設定變更時由外掛呼叫。 */
+    void applyAlertPrefs() {
+        engine.setRadiusScale((elder ? 1.3 : 1.0) * alertPrefs(this).getFloat("distance", 1f));
     }
 
     @SuppressWarnings("deprecation")
@@ -430,6 +459,7 @@ public class GuardianService extends Service {
     }
 
     private void speak(String s) {
+        if (!alertPrefs(this).getBoolean("voice", true)) return; // 設定關閉語音播報
         if (tts != null && ttsReady) {
             tts.setSpeechRate(elder ? 0.85f : 1.0f); // TTS 初始化完成後才會生效，所以每次播報前設定
             Bundle p = new Bundle();
@@ -505,8 +535,20 @@ public class GuardianService extends Service {
         a.setVibrationPattern(new long[]{0, 350, 150, 350});
         NotificationChannel hist = new NotificationChannel(CH_HISTORY, "提醒紀錄（靈動島開啟時）", NotificationManager.IMPORTANCE_LOW);
         hist.setDescription("已用靈動島提醒時，通知欄只留下靜音紀錄");
+        NotificationChannel v = new NotificationChannel(CH_ALERT_V, "危險路口提醒（只震動）", NotificationManager.IMPORTANCE_HIGH);
+        v.setSound(null, null);
+        v.enableVibration(true);
+        v.setVibrationPattern(new long[]{0, 350, 150, 350});
+        NotificationChannel snd = new NotificationChannel(CH_ALERT_S, "危險路口提醒（只有聲音）", NotificationManager.IMPORTANCE_HIGH);
+        snd.enableVibration(false);
+        NotificationChannel q = new NotificationChannel(CH_ALERT_Q, "危險路口提醒（靜音）", NotificationManager.IMPORTANCE_HIGH);
+        q.setSound(null, null);
+        q.enableVibration(false);
         nm.createNotificationChannel(s);
         nm.createNotificationChannel(a);
         nm.createNotificationChannel(hist);
+        nm.createNotificationChannel(v);
+        nm.createNotificationChannel(snd);
+        nm.createNotificationChannel(q);
     }
 }

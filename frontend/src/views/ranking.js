@@ -5,6 +5,7 @@ import { icon } from '../icons.js'
 import { PERIOD_HINT, PERIOD_OPTS, WEATHER_OPTS, on, setMode, state } from '../store.js'
 import { $, LEVEL, actionSheet, disclaimer, emptyState, esc, fmt, makePage, modal, segmented, skeletonList } from '../ui.js'
 import { pickWeather, renderWeatherChip } from '../weather.js'
+import { L, createMap, meIcon } from '../map-utils.js'
 
 const SCOPES = [
   { value: 'near', label: '附近' },
@@ -12,6 +13,8 @@ const SCOPES = [
   { value: 'custom', label: '自訂' },
 ]
 const NEAR_M = 2000
+const RADII = [500, 1000, 2000, 3000, 5000] // 附近範圍可選的距離（後端上限 5 公里）
+const rLabel = (r) => (r >= 1000 ? `${r / 1000} 公里` : `${r} 公尺`)
 
 const store = {
   get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } },
@@ -48,12 +51,13 @@ export function rankingView({ openReport }) {
     <div class="section" style="margin-top:2px">
       <button class="search-field rank-search">${icon('search')}<span class="q-ph">搜尋地區或地點，例如 板橋、台中車站</span></button>
       <div class="seg-scope" style="margin-top:12px"></div>
-      <div class="chips" style="margin-top:12px">
+      <div class="chips rank-chips">
+        <span class="rank-act"></span>
         <button class="chip" data-act="weather"></button>
         <button class="chip" data-act="period"></button>
       </div>
     </div>
-    <div class="section"><div class="section-header rank-head-row"><span class="rank-head"></span><span class="rank-act"></span></div><div class="rank-list"></div></div>
+    <div class="section"><div class="section-header rank-head"></div><div class="rank-list"></div></div>
     ${disclaimer()}`
   const seg = segmented(SCOPES, scope, (v) => { scope = v; searched = null; store.set('rankScope', v); if (v === 'custom' && !custom) pickCustom(); else load() })
   $('.seg-scope', p.el).replaceWith(seg)
@@ -68,6 +72,51 @@ export function rankingView({ openReport }) {
   }
 
   const areaName = (a) => `${a.city}${a.district || ''}`
+  const radiusM = () => { const r = +store.get('rankRadius', NEAR_M); return RADII.includes(r) ? r : NEAR_M }
+  let lastPos = null
+
+  /* ---------- 附近範圍（類似 FB Marketplace）：選距離＋小地圖同步顯示範圍內的危險點（不顯示路名） ---------- */
+  async function pickRadius() {
+    let r = radiusM()
+    const m = modal({ title: '附近範圍', right: '套用', onRight: (close) => { store.set('rankRadius', r); close(); load() }, content: `
+      <div class="rp-map"></div>
+      <div class="rp-count"><span class="rp-num">–</span><span class="rp-text">個危險路口</span></div>
+      <div class="rp-levels"></div>
+      <div class="rp-seg"></div>
+      <div class="t-footnote c-2 rp-where" style="text-align:center;margin-top:10px"></div>` })
+    const pos = lastPos || await myPosition()
+    $('.rp-where', m.body).textContent = pos.gps ? '以目前位置為中心' : `以${pos.name || '路線起點'}為中心（未開啟定位）`
+    const segEl = segmented(RADII.map((v) => ({ value: String(v), label: v >= 1000 ? `${v / 1000}km` : `${v}m` })), String(r), (v) => { r = +v; draw() })
+    $('.rp-seg', m.body).replaceWith(segEl)
+    const map = createMap($('.rp-map', m.body), { dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false, attributionControl: false, zoomSnap: 0.1 })
+    map.setView([pos.lat, pos.lon], 14)
+    const circle = L.circle([pos.lat, pos.lon], { radius: r, color: '#0a84ff', weight: 2, fillColor: '#0a84ff', fillOpacity: 0.08 }).addTo(map)
+    L.marker([pos.lat, pos.lon], { icon: meIcon(), interactive: false }).addTo(map)
+    const dots = L.layerGroup().addTo(map)
+    let all = []
+    function draw() {
+      circle.setRadius(r)
+      map.fitBounds(circle.getBounds(), { padding: [14, 14], animate: true })
+      dots.clearLayers()
+      const inside = all.filter((h) => h.distance_m <= r)
+      inside.forEach((h) => L.circleMarker([h.lat, h.lon], {
+        radius: h.level === 'high' ? 5 : 4, stroke: true, color: '#fff', weight: 1,
+        fillColor: LEVEL[h.level].hex, fillOpacity: 0.95, interactive: false,
+      }).addTo(dots))
+      const n = (lv) => inside.filter((h) => h.level === lv).length
+      $('.rp-num', m.body).textContent = inside.length
+      $('.rp-levels', m.body).innerHTML = ['high', 'medium', 'low'].map((lv) =>
+        `<span class="rp-lv"><i style="background:${LEVEL[lv].hex}"></i>${LEVEL[lv].label} ${n(lv)}</span>`).join('')
+    }
+    setTimeout(() => { map.invalidateSize(); draw() }, 420) // 等彈出動畫結束
+    try {
+      const q = new URLSearchParams({ lat: pos.lat.toFixed(5), lon: pos.lon.toFixed(5), radius: Math.max(...RADII), limit: 200, weather: state.weather, period: state.period })
+      all = (await api(`/api/hotspots/near?${q}`)).hotspots
+      draw()
+    } catch (e) {
+      $('.rp-text', m.body).textContent = `無法載入：${e.message}`
+    }
+  }
 
   async function load() {
     renderChips()
@@ -84,13 +133,24 @@ export function rankingView({ openReport }) {
     act.innerHTML = ''
     try {
       const view = searched || (scope === 'custom' ? { kind: 'area', ...custom } : { kind: scope })
+      const radius = radiusM()
+      // 範圍膠囊（和天候、時段同一列）：附近→距離、自訂→地區、搜尋→搜尋內容＋清除
+      if (view.kind === 'near') {
+        act.innerHTML = `<button class="chip on scope-chip" data-radius>${icon('location')}${rLabel(radius)}<span class="caret">${icon('chevronDown')}</span></button>`
+      } else if (searched) {
+        act.innerHTML = `<button class="chip on scope-chip" data-clear>${icon('search')}<span class="sc-t">${esc(searched.kind === 'area' ? searched.district || searched.city : searched.name)}</span>${icon('xmark')}</button>${searched.kind === 'area' ? `<button class="chip" data-pin>${icon('mappin')}設為常駐</button>` : ''}`
+      } else if (scope === 'custom') {
+        act.innerHTML = `<button class="chip on scope-chip" data-change>${icon('mappin')}<span class="sc-t">${esc(custom.district || custom.city)}</span><span class="caret">${icon('chevronDown')}</span></button>`
+      }
       if (view.kind === 'near' || view.kind === 'place') {
         const pos = view.kind === 'place' ? view : await myPosition()
         if (my !== seq) return
-        q.set('lat', pos.lat.toFixed(5)); q.set('lon', pos.lon.toFixed(5)); q.set('radius', NEAR_M)
+        lastPos = pos
+        const r = view.kind === 'place' ? NEAR_M : radius
+        q.set('lat', pos.lat.toFixed(5)); q.set('lon', pos.lon.toFixed(5)); q.set('radius', r)
         url = `/api/hotspots/near?${q}`
-        head = view.kind === 'place' ? `${view.name} 2 公里內`
-          : pos.gps ? '目前位置 2 公里內' : `${pos.name || '路線起點'} 2 公里內（未開啟定位）`
+        head = view.kind === 'place' ? `${view.name} ${rLabel(r)}內`
+          : pos.gps ? `目前位置 ${rLabel(r)}內` : `${pos.name || '路線起點'} ${rLabel(r)}內（未開啟定位）`
       } else if (view.kind === 'area' && view.city) {
         q.set('city', view.city)
         if (view.district) q.set('district', view.district)
@@ -100,29 +160,27 @@ export function rankingView({ openReport }) {
         url = `/api/hotspots/top?${q}`
         head = '全國'
       }
-      if (searched) {
-        act.innerHTML = `${searched.kind === 'area' ? '<button class="link-btn" data-pin>設為自訂</button>' : ''}<button class="link-btn" data-clear>清除搜尋</button>`
-      } else if (scope === 'custom') {
-        act.innerHTML = '<button class="link-btn" data-change>更改地區</button>'
-      }
       $('.rank-head', p.el).textContent = `${head}・${mode}`
       const res = await api(url)
       if (my !== seq) return
       rows = res.hotspots
-      const showArea = !(view.kind === 'area' && view.district)
+      // 第二行只放 2 項，避免被截斷：附近→距離＋區；地區→區（同區時改受傷人數）；全國→縣市區
+      const sub = (h) => {
+        const place = view.kind === 'all' ? `${h.city || ''}${h.district || ''}` : h.district || ''
+        if (h.distance_m != null) return `${fmt.dist(h.distance_m)}・${place}`
+        if (view.kind === 'area' && view.district) return `${LEVEL[h.level].label}・受傷 ${h.injury_count} 人`
+        return `${place}・受傷 ${h.injury_count} 人`
+      }
       list.innerHTML = rows.length ? `<div class="list">${rows.map((h, i) => `
-        <button class="cell tappable hs-cell" data-id="${h.id}" style="--sep-inset:62px">
+        <button class="cell tappable hs-cell rank-cell" data-id="${h.id}">
           <span class="rank ${h.level}">${i + 1}</span>
           <span class="cell-main">
-            <span class="cell-title" style="display:block">${esc(h.name)}</span>
-            <span class="cell-sub" style="display:block">${[
-              h.distance_m != null ? fmt.dist(h.distance_m) : '',
-              showArea ? esc(`${view.kind === 'all' ? h.city || '' : ''}${h.district || ''}`) : '',
-              LEVEL[h.level].label, `受傷 ${h.injury_count} 人`].filter(Boolean).join('・')}</span>
+            <span class="cell-title">${esc(h.name)}</span>
+            <span class="cell-sub">${esc(sub(h))}</span>
           </span>
           <span class="hs-count"><span class="num">${h.filtered_count}</span><small>件</small></span>
           <span class="chev">${icon('chevronRight')}</span>
-        </button>`).join('')}</div>` : emptyState('checkCircle', '這個範圍沒有危險路口', '換個地區或天候時段看看')
+        </button>`).join('')}</div>` : emptyState('checkCircle', '這個範圍沒有危險路口', '換個範圍或天候時段看看')
     } catch (e) {
       if (my === seq) list.innerHTML = emptyState('wifi', '無法連線', e.message)
     }
@@ -246,6 +304,7 @@ export function rankingView({ openReport }) {
     if (e.target.closest('.rank-search')) return openSearch()
     if (e.target.closest('[data-clear]')) return clearSearch()
     if (e.target.closest('[data-change]')) return pickCustom()
+    if (e.target.closest('[data-radius]')) return pickRadius()
     if (e.target.closest('[data-pin]')) {
       custom = { city: searched.city, district: searched.district }
       store.set('rankCustom', custom)
