@@ -17,20 +17,25 @@ if errorlevel 1 (
   exit /b 1
 )
 echo [1/4] 檢查 Python 套件…
-set SYNC=
-uv sync --quiet
-if errorlevel 1 (
-  rem 常見原因：.venv 正被其他程式使用（例如 Claude 的資料庫工具、還在跑的 API），Windows 不讓 uv 改檔案。
-  rem 現有環境的必要套件都在就照常啟動，不在才停下來。
-  uv run --no-sync python -c "import fastapi, uvicorn, psycopg, sklearn, httpx" >nul 2>nul
+rem 套件都在就不跑 uv sync：.venv 若正被其他程式使用（例如 Claude 的資料庫工具），
+rem uv sync 可能想重建 .venv 而刪掉一半套件（2026-10-21 實際發生）。只有第一次或缺套件時才安裝。
+rem 注意：括號區塊裡不要寫中文 rem，cmd 在 UTF-8 下會解析錯。
+set NEED_SYNC=1
+if exist ".venv\Scripts\python.exe" (
+  ".venv\Scripts\python.exe" -c "import fastapi, uvicorn, psycopg, sklearn, httpx, anyio, click" >nul 2>nul
+  if not errorlevel 1 set NEED_SYNC=0
+)
+if "%NEED_SYNC%"=="1" (
+  echo 安裝 Python 套件（第一次約 1 分鐘）…
+  if not exist logs mkdir logs
+  uv sync -v > logs\uv_sync.log 2>&1
   if errorlevel 1 (
-    echo ⚠ Python 套件安裝失敗，請看上方訊息（關掉其他用到本專案 Python 的程式後再試一次）
+    echo ⚠ Python 套件安裝失敗，詳細訊息在 logs\uv_sync.log
+    echo   請先關掉其他用到本專案 Python 的程式（例如 Claude、還在跑的伺服器）再試一次
     pause
     exit /b 1
   )
-  echo ⚠ 套件更新沒有完成（.venv 可能正被其他程式使用），先用現有的套件啟動
-  set SYNC=--no-sync
 )
-uv run %SYNC% python scripts\server.py start
+uv run --no-sync python scripts\server.py start
 echo.
 pause
