@@ -10,7 +10,7 @@
     },
     "postgres": {
       "command": "uv",
-      "args": ["run", "--quiet", "python", "tools_mcp/pg_readonly_mcp.py"],
+      "args": ["run", "--quiet", "--isolated", "--no-project", "--with", "mcp==2.3.0", "--with", "psycopg[binary]==3.3.6", "python", "tools_mcp/pg_readonly_mcp.py"],
       "env": {
         "DATABASE_URI": "postgresql://mcp_readonly@127.0.0.1:5432/traffic",
         "UV_SYSTEM_CERTS": "1"

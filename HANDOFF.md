@@ -3,6 +3,13 @@
 > 每完成一個小任務、或對話快滿／額度快到時，都要更新本檔並 commit。接手方先讀 AGENTS.md、本檔、TASKS.md。
 > 最後更新：2026-10-21（Claude，AI 任務 2 完成 `b1acda9`）。App 名稱已改為 **「有路安」**（套件名稱仍是 `tw.edu.fju.trafficsafety`，不要改，否則手機要重裝）。
 
+## 一鍵啟動修正（2026-10-21，Claude）
+
+- **雙擊 `start_server.bat` 一直失敗、`.venv` 被刪一半**：Claude 桌面版是 Store（MSIX）App，在 `AppData\Roaming` 寫的檔案會被重新導向到 Claude 私人資料夾。`.venv` 原本指向 `AppData\Roaming\uv\python\cpython-3.11.17`，從檔案總管執行時 uv 找不到這個 Python（log：`linked to non-existent Python interpreter`），就想刪除重建，又因 `.venv` 被 Claude 的 postgres MCP 佔用而刪到一半失敗。
+- 修正：Python 複製到專案內 `.uv-python/`（已在 .gitignore），`.venv` 重建在它上面；bat 設 `UV_PYTHON_INSTALL_DIR=%~dp0.uv-python`、`UV_PYTHON_PREFERENCE=only-managed`；套件都在就不跑 `uv sync`。`.mcp.json` 的 postgres 工具改 `uv run --isolated --no-project --with …`，不再佔用 `.venv`（要重開 Claude 才套用）。
+- **bat 括號區塊裡不能寫中文**（UTF-8 下 cmd 會切錯，出現 `'…' is not recognized`），改用 `goto` 標籤。
+- **關掉視窗就停止**：`server.py run`（bat 用）讓 API 在視窗前台執行，並開一個背景看門狗程序等視窗程序結束後停止 API 與資料庫；實測強制結束視窗程序後 API 與 postgres 都停止。`server.py start/stop` 保留給自動化測試（背景執行）。
+
 ## AI 任務 2 完成（2026-10-21，Claude，commit `b1acda9`）
 
 - `ai/rain_risk.py`＋`migrations/005_rain_risk.sql`：氣象署 C-B0025-001 每日雨量（38 測站、1/1 起，快取在 `data/raw/cwa/`）、測站座標 O-A0003-001／O-A0001-001；行政區對應 30 km 內最近測站，≥1 mm 為雨天。

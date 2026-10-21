@@ -1,6 +1,7 @@
-"""一鍵啟動／停止：資料庫（local 模式）＋ FastAPI。由 start_server.bat / stop_server.bat（或 .sh）呼叫。
+"""一鍵啟動／停止：資料庫（local 模式）＋ FastAPI。
 
-    uv run python scripts/server.py start
+    uv run python scripts/server.py run      # start_server.bat 用：在這個視窗執行，關掉視窗就停止
+    uv run python scripts/server.py start    # 背景執行（自動化測試用）
     uv run python scripts/server.py stop
     uv run python scripts/server.py status
 """
@@ -115,7 +116,104 @@ def step(text: str) -> None:
     print(text, flush=True)
 
 
-def start() -> None:
+def api_command(host: str, port: str) -> list[str]:
+    cmd = [sys.executable, "-m", "uvicorn", "backend.app.main:app", "--host", host, "--port", port, "--proxy-headers"]
+    if os.name == "nt":
+        # Python 3.11 Proactor 的 accept 遇到 WinError 64 會關閉監聽 socket，
+        # 程序仍活著但所有新連線被拒絕。只為 Windows 本機 API 指定 Selector。
+        cmd += ["--loop", "backend.app.runtime:windows_selector_loop"]
+    return cmd
+
+
+def wait_healthy(p: subprocess.Popen, port: str, log_hint: str) -> None:
+    for _ in range(60):
+        try:
+            if httpx.get(f"http://127.0.0.1:{port}/api/health", timeout=2).json().get("status") == "ok":
+                return
+        except Exception:  # noqa: BLE001
+            pass
+        if p.poll() is not None:
+            raise SystemExit(f"API 啟動失敗，請看 {log_hint}")
+        time.sleep(0.5)
+    raise SystemExit(f"API 30 秒內沒有回應，請看 {log_hint}")
+
+
+def banner(port: str, foreground: bool) -> None:
+    public = env("PUBLIC_API_BASE", "")
+    print("\n" + "=" * 60)
+    if foreground:
+        print("  ✅ 完成！伺服器執行中（資料庫＋API）")
+        print("  ★ 要停止伺服器：直接關掉這個視窗（或按 Ctrl+C）")
+    else:
+        print("  ✅ 完成！伺服器已在背景啟動（資料庫＋API）")
+        print("  停止：uv run python scripts/server.py stop")
+    print(f"  本機瀏覽器：http://127.0.0.1:{port}/")
+    for ip in lan_ips():
+        print(f"  手機／平板（同一個 Wi-Fi）請在 App 設定頁輸入：http://{ip}:{port}")
+    if public:
+        print(f"  對外網址：{public}")
+    print(f"  API 文件：http://127.0.0.1:{port}/docs")
+    print("=" * 60, flush=True)
+
+
+def on_console_close(cleanup) -> None:
+    """Windows：關掉視窗（CTRL_CLOSE_EVENT）、登出、關機時也執行 cleanup。
+    Python 的 signal 收不到關視窗事件，要用 SetConsoleCtrlHandler；系統約給 5 秒。"""
+    if os.name != "nt":
+        signal.signal(signal.SIGTERM, lambda *_: cleanup())
+        signal.signal(signal.SIGHUP, lambda *_: cleanup())
+        return
+    import ctypes
+    from ctypes import wintypes
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
+    def handler(event: int) -> bool:
+        if event in (2, 5, 6):  # CTRL_CLOSE_EVENT、CTRL_LOGOFF_EVENT、CTRL_SHUTDOWN_EVENT
+            cleanup()
+            return True
+        return False  # Ctrl+C／Ctrl+Break 交給 Python 的 KeyboardInterrupt
+
+    on_console_close.handler = handler  # 保留參照，避免被回收
+    ctypes.windll.kernel32.SetConsoleCtrlHandler(handler, True)
+
+
+def start_watchdog() -> None:
+    """另開一個不屬於這個視窗的背景程序，等這個程序結束（關視窗、被強制結束都算）就停止 API 與資料庫。
+    關視窗事件在 Windows Terminal 等情況不一定送得到，看門狗是保險。"""
+    kw: dict = {"cwd": ROOT, "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+    if os.name == "nt":
+        kw["creationflags"] = (subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
+                               | 0x01000000)  # CREATE_BREAKAWAY_FROM_JOB：Windows Terminal 關分頁時不會一起被結束
+    else:
+        kw["start_new_session"] = True
+    try:
+        subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "watchdog", str(os.getpid())], **kw)
+    except OSError:  # 不允許脫離工作物件時，改用一般背景程序
+        kw["creationflags"] &= ~0x01000000
+        subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "watchdog", str(os.getpid())], **kw)
+
+
+def watchdog(pid: int) -> None:
+    """等 pid 結束，再停止 API 與資料庫（只在 start_server 的視窗程序結束後才動作）。"""
+    if os.name == "nt":
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        h = k32.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+        if h:
+            k32.WaitForSingleObject(h, 0xFFFFFFFF)
+            k32.CloseHandle(h)
+    else:
+        while pid_alive(pid):
+            time.sleep(1)
+    stop_api()
+    if env("DB_MODE", "local") == "local":
+        subprocess.run([sys.executable, str(ROOT / "scripts" / "localdb.py"), "stop"], cwd=ROOT,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def start(foreground: bool = False) -> None:
+    """foreground=True（start_server.bat 用）：API 在這個視窗執行，關掉視窗就停止 API 與資料庫。
+    foreground=False（自動化測試用）：API 在背景執行，要用 stop 停止。"""
     step("[2/4] 設定檔與資料庫…")
     py("setup_env.py")
     ensure_database()
@@ -124,50 +222,55 @@ def start() -> None:
     port = env("API_PORT", "8000")
     host = env("API_HOST", "0.0.0.0")
     step("[4/4] 啟動 API（最多 30 秒）…")
-    if api_pid():
-        print("API 已在執行中。")
-    else:
-        RUN.mkdir(exist_ok=True)
-        LOGS.mkdir(exist_ok=True)
-        log = API_LOG.open("a", encoding="utf-8")
-        cmd = [sys.executable, "-m", "uvicorn", "backend.app.main:app", "--host", host, "--port", port,
-               "--proxy-headers"]
-        if os.name == "nt":
-            # Python 3.11 Proactor 的 accept 遇到 WinError 64 會關閉監聽 socket，
-            # 程序仍活著但所有新連線被拒絕。只為 Windows 本機 API 指定 Selector。
-            cmd += ["--loop", "backend.app.runtime:windows_selector_loop"]
-        kw: dict = {"cwd": ROOT, "stdout": log, "stderr": subprocess.STDOUT, "stdin": subprocess.DEVNULL}
-        if os.name == "nt":
-            kw["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
+    RUN.mkdir(exist_ok=True)
+    LOGS.mkdir(exist_ok=True)
+    if not foreground:
+        if api_pid():
+            print("API 已在執行中。")
         else:
-            kw["start_new_session"] = True
-        p = subprocess.Popen(cmd, **kw)
-        PID.write_text(str(p.pid))
-        for _ in range(60):
-            try:
-                if httpx.get(f"http://127.0.0.1:{port}/api/health", timeout=2).json().get("status") == "ok":
-                    break
-            except Exception:  # noqa: BLE001
-                pass
-            if p.poll() is not None:
-                raise SystemExit(f"API 啟動失敗，請看 {API_LOG.relative_to(ROOT)}")
-            time.sleep(0.5)
-        else:
-            raise SystemExit("API 30 秒內沒有回應，請看 logs/api.log")
-    public = env("PUBLIC_API_BASE", "")
-    print("\n" + "=" * 60)
-    print("  ✅ 完成！伺服器已啟動（資料庫＋API），這個視窗可以關掉，伺服器會繼續執行")
-    print(f"  本機瀏覽器：http://127.0.0.1:{port}/")
-    for ip in lan_ips():
-        print(f"  手機／平板（同一個 Wi-Fi）請在 App 設定頁輸入：http://{ip}:{port}")
-    if public:
-        print(f"  對外網址：{public}")
-    print(f"  API 文件：http://127.0.0.1:{port}/docs")
-    print("  停止：執行 stop_server.bat（或 ./stop_server.sh）")
-    print("=" * 60)
+            log = API_LOG.open("a", encoding="utf-8")
+            kw: dict = {"cwd": ROOT, "stdout": log, "stderr": subprocess.STDOUT, "stdin": subprocess.DEVNULL}
+            if os.name == "nt":
+                kw["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
+            else:
+                kw["start_new_session"] = True
+            p = subprocess.Popen(api_command(host, port), **kw)
+            PID.write_text(str(p.pid))
+            wait_healthy(p, port, str(API_LOG.relative_to(ROOT)))
+        banner(port, False)
+        return
+    if api_pid():  # 之前在背景啟動的 API 先停掉，改由這個視窗管理
+        stop_api()
+    p = subprocess.Popen(api_command(host, port), cwd=ROOT, stdin=subprocess.DEVNULL)
+    PID.write_text(str(p.pid))
+    done = False
+
+    def cleanup() -> None:
+        nonlocal done
+        if done:
+            return
+        done = True
+        print("\n正在停止伺服器…", flush=True)
+        if p.poll() is None:
+            p.terminate()
+        PID.unlink(missing_ok=True)
+        if env("DB_MODE", "local") == "local":
+            subprocess.run([sys.executable, str(ROOT / "scripts" / "localdb.py"), "stop"], cwd=ROOT)
+
+    on_console_close(cleanup)
+    start_watchdog()
+    try:
+        wait_healthy(p, port, "上方訊息")
+        banner(port, True)
+        p.wait()
+        print("⚠ API 已結束（請看上方訊息）")
+    except KeyboardInterrupt:
+        pass
+    finally:
+        cleanup()
 
 
-def stop() -> None:
+def stop_api() -> None:
     pid = api_pid()
     if pid:
         if os.name == "nt":
@@ -178,6 +281,10 @@ def stop() -> None:
         print("API 已停止。")
     else:
         print("API 沒有在執行。")
+
+
+def stop() -> None:
+    stop_api()
     if env("DB_MODE", "local") == "local":
         py("localdb.py", "stop")
 
@@ -191,7 +298,11 @@ def status() -> None:
 
 def main() -> int:
     cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
-    {"start": start, "stop": stop, "status": status}.get(cmd, lambda: print(__doc__))()
+    if cmd == "watchdog":
+        watchdog(int(sys.argv[2]))
+        return 0
+    {"start": start, "run": lambda: start(foreground=True), "stop": stop,
+     "status": status}.get(cmd, lambda: print(__doc__))()
     return 0
 
 

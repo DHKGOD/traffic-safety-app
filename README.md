@@ -37,7 +37,7 @@ GitHub：https://github.com/DHKGOD/traffic-safety-app
 
 ## 1. 啟動伺服器（資料庫＋API）
 
-**Windows：雙擊 `start_server.bat`**（停止用 `stop_server.bat`）。Linux／雲端主機用 `./start_server.sh`、`./stop_server.sh`。
+**Windows：雙擊 `start_server.bat`**，伺服器在那個視窗執行；**要停止就直接關掉視窗**（或按 Ctrl+C），API 與資料庫會一起停止（`stop_server.bat` 仍可用來停止背景啟動的伺服器）。Python 會放在專案內的 `.uv-python/`（Claude 桌面版等 Store App 寫在 AppData 的檔案，其他程式看不到）。Linux／雲端主機用 `./start_server.sh`、`./stop_server.sh`。
 
 第一次執行會自動：產生 `.env`（含隨機密碼）→ 建立資料庫 → 建表 → 匯入資料（約 1–2 分鐘）。完成後畫面會印出：
 
