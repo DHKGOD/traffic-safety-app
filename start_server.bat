@@ -17,12 +17,20 @@ if errorlevel 1 (
   exit /b 1
 )
 echo [1/4] 檢查 Python 套件…
+set SYNC=
 uv sync --quiet
 if errorlevel 1 (
-  echo ⚠ Python 套件安裝失敗，請看上方訊息
-  pause
-  exit /b 1
+  rem 常見原因：.venv 正被其他程式使用（例如 Claude 的資料庫工具、還在跑的 API），Windows 不讓 uv 改檔案。
+  rem 現有環境的必要套件都在就照常啟動，不在才停下來。
+  uv run --no-sync python -c "import fastapi, uvicorn, psycopg, sklearn, httpx" >nul 2>nul
+  if errorlevel 1 (
+    echo ⚠ Python 套件安裝失敗，請看上方訊息（關掉其他用到本專案 Python 的程式後再試一次）
+    pause
+    exit /b 1
+  )
+  echo ⚠ 套件更新沒有完成（.venv 可能正被其他程式使用），先用現有的套件啟動
+  set SYNC=--no-sync
 )
-uv run python scripts\server.py start
+uv run %SYNC% python scripts\server.py start
 echo.
 pause
